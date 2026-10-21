@@ -1,114 +1,37 @@
 'use client'
 
-import { createLandingPage } from '../actions'
+import Link from 'next/link'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Code2, Eye, FileCode2, Save } from 'lucide-react'
+import { createLandingPage } from '../actions'
+
+const starterHtml = `<div style="min-height:100vh;padding:60px 20px;background:#f3f6f8;font-family:Arial,sans-serif;color:#101828;box-sizing:border-box">
+  <main style="max-width:640px;margin:auto;padding:44px;background:white;border-radius:20px;box-shadow:0 20px 55px #10182820">
+    <div style="width:52px;height:52px;display:grid;place-items:center;border-radius:15px;background:#dff9ee;color:#16805a;font-size:24px">✓</div>
+    <p style="margin-top:28px;color:#16805a;font-weight:bold;text-transform:uppercase;font-size:12px;letter-spacing:1px">PhishSafe learning moment</p>
+    <h1 style="font-size:38px;line-height:1.1">This was a safe simulation.</h1>
+    <p style="color:#667085;line-height:1.7">Pause, inspect the sender and verify unexpected requests through a trusted channel.</p>
+    <div style="margin-top:24px;padding:16px;background:#effbf6;border-radius:10px;color:#176347">No passwords or private information were stored.</div>
+  </main>
+</div>`
 
 export default function CreateLandingPage() {
-    const [error, setError] = useState<string | null>(null)
-    const [loading, setLoading] = useState(false)
-    const router = useRouter()
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [html, setHtml] = useState(starterHtml)
+  const [tab, setTab] = useState<'code' | 'preview'>('code')
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault()
-        setLoading(true)
-        setError(null)
-        const formData = new FormData(e.currentTarget)
-        try {
-            await createLandingPage(formData)
-            router.push('/dashboard/landing-pages')
-        } catch (error: any) {
-            console.error(error)
-            setError(error.message || 'Failed to create landing page')
-        } finally {
-            setLoading(false)
-        }
-    }
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setLoading(true); setError('')
+    try { await createLandingPage(new FormData(event.currentTarget)) }
+    catch (submitError) { setError(submitError instanceof Error ? submitError.message : 'Failed to create landing page'); setLoading(false) }
+  }
 
-    return (
-        <div className="p-8 max-w-4xl mx-auto">
-            <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Create Custom Landing Page</h1>
-
-            {error && (
-                <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
-                    <div className="flex">
-                        <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                        </div>
-                        <div className="ml-3">
-                            <p className="text-sm text-red-700">
-                                {error}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow transition-colors">
-                <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Page Name
-                    </label>
-                    <input
-                        type="text"
-                        name="name"
-                        id="name"
-                        required
-                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        placeholder="e.g. Fake Bank Login"
-                    />
-                </div>
-
-                <div>
-                    <label htmlFor="urlSlug" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        URL Slug
-                    </label>
-                    <div className="mt-1 flex rounded-md shadow-sm">
-                        <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 sm:text-sm">
-                            /l/
-                        </span>
-                        <input
-                            type="text"
-                            name="urlSlug"
-                            id="urlSlug"
-                            required
-                            className="flex-1 min-w-0 block w-full px-3 py-2 rounded-none rounded-r-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            placeholder="fake-bank-login"
-                        />
-                    </div>
-                </div>
-
-                <div>
-                    <label htmlFor="htmlContent" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        HTML Content
-                    </label>
-                    <div className="mt-1">
-                        <textarea
-                            name="htmlContent"
-                            id="htmlContent"
-                            rows={15}
-                            required
-                            className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 dark:border-gray-600 rounded-md font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            placeholder="<!DOCTYPE html><html>...</html>"
-                        />
-                    </div>
-                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                        Paste your full HTML code here. Make sure your form submits to <code>/capture-credentials</code> (not implemented yet for custom pages, just a placeholder).
-                    </p>
-                </div>
-
-                <div className="flex justify-end">
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                    >
-                        {loading ? 'Creating...' : 'Create Page'}
-                    </button>
-                </div>
-            </form>
-        </div>
-    )
+  return <div className="content-page">
+    <section className="page-heading"><div><p className="eyebrow">Landing-page studio</p><h1>Build a learning moment</h1><p>Create the educational page recipients see after a simulated click. Preview it safely before saving.</p></div></section>
+    <form onSubmit={handleSubmit} className="landing-studio">
+      <section className="landing-settings"><div className="settings-title"><span><FileCode2 size={19}/></span><div><h2>Page details</h2><p>Name and address for your page.</p></div></div><div className="field"><label htmlFor="name">Page name</label><input id="name" name="name" required placeholder="e.g. Finance awareness page"/></div><div className="field"><label htmlFor="urlSlug">URL slug</label><div className="slug-input"><span>/l/</span><input id="urlSlug" name="urlSlug" required pattern="[a-zA-Z0-9-]+" placeholder="finance-awareness"/></div><small>Letters, numbers and hyphens only.</small></div><div className="studio-safety"><strong>Privacy by design</strong><p>Use this page to teach. Do not request or store real credentials.</p></div>{error&&<div className="auth-message error">{error}</div>}<div className="studio-actions"><Link href="/dashboard/landing-pages" className="button secondary">Cancel</Link><button className="button primary" disabled={loading}><Save size={15}/>{loading?'Saving…':'Save page'}</button></div></section>
+      <section className="landing-editor"><div className="editor-tabs"><div><button type="button" className={tab==='code'?'active':''} onClick={()=>setTab('code')}><Code2 size={14}/>HTML</button><button type="button" className={tab==='preview'?'active':''} onClick={()=>setTab('preview')}><Eye size={14}/>Preview</button></div><span>Live preview</span></div><textarea name="htmlContent" value={html} onChange={(event)=>setHtml(event.target.value)} className={tab==='code'?'studio-code':'hidden'} spellCheck={false} required/><div className={tab==='preview'?'studio-preview':'hidden'}><iframe title="Landing page preview" srcDoc={html} sandbox=""/></div></section>
+    </form>
+  </div>
 }

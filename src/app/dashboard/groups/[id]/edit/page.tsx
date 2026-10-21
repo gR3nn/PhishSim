@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { updateGroup } from '../../actions'
+import { SubmitButton } from '@/components/submit-button'
 
 export default async function EditGroupPage({
     params,
@@ -48,12 +49,7 @@ export default async function EditGroupPage({
                 </div>
 
                 <div className="flex justify-end">
-                    <button
-                        type="submit"
-                        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
-                    >
-                        Save Changes
-                    </button>
+                    <SubmitButton label="Save changes" pendingLabel="Saving audience…" />
                 </div>
             </form>
         </div>

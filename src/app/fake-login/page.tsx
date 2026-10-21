@@ -47,18 +47,6 @@ export default async function FakeLoginPage({
                         />
                     </div>
 
-                    <div className="text-[13px] text-[#0067b8] mt-4">
-                        <a href="#" className="hover:underline">
-                            No account? Create one!
-                        </a>
-                    </div>
-
-                    <div className="text-[13px] text-[#0067b8] mt-2">
-                        <a href="#" className="hover:underline">
-                            Sign in with a security key
-                        </a>
-                    </div>
-
                     <div className="flex justify-end mt-8">
                         <button
                             type="submit"

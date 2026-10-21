@@ -9,7 +9,7 @@ export default async function LandingPage({
     params: Promise<{ campaignName: string; groupName: string; slug: string }>
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-    const { campaignName, groupName, slug } = await params
+    const { campaignName, slug } = await params
     const resolvedSearchParams = await searchParams
     const targetEmail = resolvedSearchParams.t as string | undefined
 
@@ -25,12 +25,13 @@ export default async function LandingPage({
     // We'll select the ID. If duplicate names exist, we take the most recent one.
     const { data: campaigns, error: campaignError } = await supabase
         .from('campaigns')
-        .select('id')
+        .select('id,user_id')
         .eq('title', decodedCampaignName)
         .order('created_at', { ascending: false })
         .limit(1)
 
     const campaignId = campaigns?.[0]?.id
+    const campaignOwnerId = campaigns?.[0]?.user_id
 
     // Check for 'fake-login' special slug
     if (slug === 'fake-login') {
@@ -77,7 +78,9 @@ export default async function LandingPage({
         .from('landing_pages')
         .select('html_content')
         .eq('url_slug', slug)
-        .single()
+        .eq('user_id', campaignOwnerId || '')
+        .limit(1)
+        .maybeSingle()
 
     if (campaignError || pageError || !landingPage) {
         console.error('Landing page or campaign not found:', { campaignError, pageError })
@@ -94,8 +97,6 @@ export default async function LandingPage({
         // We also record 'opened' just in case the pixel was blocked.
         // It's safe to fire-and-forget these inserts to not block rendering too much, 
         // but await is safer to ensure they happen.
-
-        const timestamp = new Date().toISOString()
 
         // Insert 'clicked'
         const { error: clickError } = await supabase.from('events').insert({

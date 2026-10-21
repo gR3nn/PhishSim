@@ -23,7 +23,7 @@ export default async function GroupDetailsPage({
     }
 
     // Fetch Targets in Group
-    const { data: targets, error: targetsError } = await supabase
+    const { data: targets } = await supabase
         .from('targets')
         .select('*')
         .eq('group_id', id)

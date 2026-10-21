@@ -4,8 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 
 export async function captureCredentials(formData: FormData) {
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string // We won't save this
+    // Submitted credential fields are intentionally ignored and never stored.
     const campaignId = formData.get('campaignId') as string
     const targetEmail = formData.get('targetEmail') as string
 

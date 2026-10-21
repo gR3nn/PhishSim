@@ -8,12 +8,15 @@ export default async function LandingPage({
 }) {
     const { slug } = await params
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    const { data: page } = await supabase
+    let query = supabase
         .from('landing_pages')
         .select('html_content')
         .eq('url_slug', slug)
-        .single()
+    if (user) query = query.eq('user_id', user.id)
+    const { data: pages } = await query.limit(1)
+    const page = pages?.[0]
 
     if (!page) {
         notFound()

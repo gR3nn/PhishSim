@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { sendEmail } from '@/lib/email'
+import { isAdmin } from '@/lib/authz'
 
 export async function launchCampaign(formData: FormData) {
     const title = formData.get('title') as string
@@ -21,7 +22,7 @@ export async function launchCampaign(formData: FormData) {
         throw new Error('Unauthorized')
     }
 
-    // 1. Create Campaign
+    // Campaign requests are reviewed by an administrator before any email is sent.
     const { data: campaign, error: campaignError } = await supabase
         .from('campaigns')
         .insert({
@@ -30,7 +31,8 @@ export async function launchCampaign(formData: FormData) {
             template_id: templateId,
             group_id: groupId,
             landing_page_url: landingPageUrl,
-            status: 'sent', // Auto-launching for now
+            status: 'pending_approval',
+            requested_at: new Date().toISOString(),
         })
         .select()
         .single()
@@ -40,71 +42,49 @@ export async function launchCampaign(formData: FormData) {
         throw new Error('Failed to create campaign')
     }
 
-    // 2. Fetch Targets AND Group Name
+    redirect(`/dashboard/campaigns/${campaign.id}`)
+}
+
+export async function approveCampaign(campaignId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: profile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle() : { data: null }
+    if (!user || !isAdmin(user.email, profile?.role)) throw new Error('Administrator access required')
+
+    const { data: campaign } = await supabase.from('campaigns').select('*').eq('id', campaignId).single()
+    if (!campaign || campaign.status !== 'pending_approval') throw new Error('Campaign request is not available for approval')
+
     const { data: group } = await supabase
         .from('groups')
         .select('name, targets(*)')
-        .eq('id', groupId)
+        .eq('id', campaign.group_id)
         .single()
-
     const targets = group?.targets
-
     if (!targets || targets.length === 0) {
-        // No targets, but campaign created.
-        redirect('/dashboard')
+        throw new Error('This campaign has no recipients')
     }
-
-    // 3. Fetch Template
     const { data: template } = await supabase
         .from('email_templates')
         .select('subject, body_html')
-        .eq('id', templateId)
+        .eq('id', campaign.template_id)
         .single()
+    if (!template) throw new Error('Template not found')
 
-    if (!template) {
-        console.error('Template not found')
-        throw new Error('Template not found')
-    }
+    const eventsToInsert: { campaign_id: string; target_email: string; event_type: 'sent' }[] = []
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    let slug = campaign.landing_page_url.replace(/^\//, '')
+    if (slug.startsWith('l/')) slug = slug.substring(2)
 
-    // 4. Send Emails and Log Events
-    const eventsToInsert = []
-
-    // Determine Base URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://phish-sim-khaki.vercel.app'
-
-    // Extract Slug from landingPageUrl (e.g. "/l/my-slug" -> "my-slug", "/fake-login" -> "fake-login")
-    let slug = landingPageUrl.replace(/^\//, '') // remove leading slash
-    if (slug.startsWith('l/')) {
-        slug = slug.substring(2)
-    }
-
-    // We'll send emails sequentially for now
     for (const target of targets) {
-        // Construct the custom link: /CampaignName/GroupName/Slug?t=targetEmail
-        const trackingPath = `/${encodeURIComponent(title)}/${encodeURIComponent(group!.name)}/${slug}`
+        const trackingPath = `/${encodeURIComponent(campaign.title)}/${encodeURIComponent(group!.name)}/${slug}`
         const trackingLink = `${baseUrl}${trackingPath}?t=${encodeURIComponent(target.email)}`
-
         const pixelLink = `${baseUrl}/api/track/${campaign.id}/${encodeURIComponent(target.email)}/pixel`
-
-        // Replace variables
         let htmlBody = template.body_html.replace(/{{link}}/g, trackingLink)
-
-        // Add tracking pixel
         htmlBody += `<img src="${pixelLink}" alt="" width="1" height="1" style="display:none;" />`
-
         try {
-            const result = await sendEmail({
-                to: target.email,
-                subject: template.subject,
-                html: htmlBody
-            })
-
+            const result = await sendEmail({ to: target.email, subject: template.subject, html: htmlBody })
             if (result.success) {
-                eventsToInsert.push({
-                    campaign_id: campaign.id,
-                    target_email: target.email,
-                    event_type: 'sent',
-                })
+                eventsToInsert.push({ campaign_id: campaign.id, target_email: target.email, event_type: 'sent' })
             } else {
                 console.error(`Failed to send to ${target.email}:`, result.error)
             }
@@ -113,17 +93,20 @@ export async function launchCampaign(formData: FormData) {
         }
     }
 
-    if (eventsToInsert.length > 0) {
-        const { error: eventsError } = await supabase
-            .from('events')
-            .insert(eventsToInsert)
+    if (eventsToInsert.length > 0) await supabase.from('events').insert(eventsToInsert)
+    await supabase.from('campaigns').update({ status: 'sent', approved_at: new Date().toISOString(), approved_by: user.id }).eq('id', campaignId)
+    redirect('/dashboard/requests')
+}
 
-        if (eventsError) {
-            console.error('Error logging sent events:', eventsError)
-        }
-    }
-
-    redirect('/dashboard')
+export async function rejectCampaign(formData: FormData) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: profile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle() : { data: null }
+    if (!user || !isAdmin(user.email, profile?.role)) throw new Error('Administrator access required')
+    const campaignId = String(formData.get('campaignId') || '')
+    const reason = String(formData.get('reason') || 'Request requires changes')
+    await supabase.from('campaigns').update({ status: 'rejected', rejection_reason: reason, approved_by: user.id }).eq('id', campaignId).eq('status', 'pending_approval')
+    redirect('/dashboard/requests')
 }
 
 export async function deleteCampaign(campaignId: string) {

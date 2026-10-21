@@ -1,12 +1,16 @@
-# PhishSim - Phishing Simulation Platform
+# PhishSafe - Security Awareness Platform
 
-PhishSim is a professional Phishing Simulation as a Service (PaaS) platform designed to help organizations test and improve their security awareness. It allows administrators to create, launch, and track simulated phishing campaigns.
+PhishSafe is a responsive Phishing Simulation as a Service platform for authorized security-awareness training. Clients purchase services and submit simulation requests; administrators review every request before delivery.
 
 ## Features
 
--   **Campaign Management**: Create and launch phishing campaigns targeting specific user groups.
+-   **Role-aware Workspace**: One login for clients and administrators.
+-   **Approval Workflow**: Campaigns remain pending until an administrator approves them.
+-   **Service Billing**: Stripe-hosted monthly subscription checkout.
+-   **Campaign Management**: Create campaigns for authorized employee groups.
 -   **Email Templates**: Customizable HTML email templates with dynamic tracking links.
--   **Target Groups**: Manage lists of targets via CSV upload.
+-   **Audience Builder**: Write or paste validated recipients using `email@example.com, Name;` format.
+-   **Starter Libraries**: Seed 12 email templates and 12 educational landing pages for every current account.
 -   **Real-time Tracking**: Track email opens, link clicks, and compromised credentials (simulated).
 -   **Interactive Dashboard**: View campaign statistics and detailed event logs in real-time.
 -   **Fake Login Pages**: Realistic login pages to capture "compromised" events (credentials are NOT stored).
@@ -14,11 +18,12 @@ PhishSim is a professional Phishing Simulation as a Service (PaaS) platform desi
 
 ## Tech Stack
 
--   **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
+-   **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
 -   **Database**: [Supabase](https://supabase.com/) (PostgreSQL)
 -   **Authentication**: Supabase Auth
 -   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
 -   **Email**: [Nodemailer](https://nodemailer.com/) (SMTP)
+-   **Payments**: [Stripe Checkout](https://stripe.com/payments/checkout)
 -   **Icons**: [Lucide React](https://lucide.dev/)
 
 ## Getting Started
@@ -58,18 +63,22 @@ PhishSim is a professional Phishing Simulation as a Service (PaaS) platform desi
     SMTP_USER=your_email@gmail.com
     SMTP_PASS=your_app_password
     SMTP_FROM="Security Team <security@yourdomain.com>"
+
+    # Stripe test-mode secret key
+    STRIPE_SECRET_KEY=sk_test_...
     ```
 
 4.  **Database Setup:**
-    Run the SQL scripts provided in `supabase/schema.sql` (if available) or manually create the following tables in Supabase:
+    For a new database, run `supabase/schema.sql`, then run `supabase/migrations/20261021_roles_approvals_billing.sql` in the Supabase SQL editor. Existing projects only need the migration.
     -   `campaigns`
     -   `email_templates`
     -   `groups`
     -   `targets`
     -   `events`
     -   `landing_pages`
+    -   `orders`
 
-5.  **Run the development server:**
+5.  **Run the development server on port 3000:**
     ```bash
     npm run dev
     ```
@@ -83,11 +92,14 @@ PhishSim is a professional Phishing Simulation as a Service (PaaS) platform desi
 2.  **Create Resources**:
     -   Go to **Templates** to create an email template.
     -   Go to **Groups** to upload a CSV of targets.
-3.  **Launch Campaign**:
+3.  **Request Campaign**:
     -   Go to **Campaigns** -> **New Campaign**.
     -   Select a template and a target group.
-    -   Click **Launch**.
-4.  **Track Progress**:
+    -   Click **Submit for approval**.
+4.  **Admin Review**:
+    -   Sign in as `gradinarumanuel99@gmail.com` or `alexxperian@gmail.com`.
+    -   Open **Approvals** and approve or reject the request.
+5.  **Track Progress**:
     -   Click on the campaign in the dashboard to view real-time stats and logs.
 
 ## Security Note

@@ -1,0 +1,106 @@
+REQUIREMENTS AND SPECIFICATIONS
+
+Title
+PhishSafe - Phishing Awareness and Simulation Management Platform
+
+OUTLINE
+The goal of PhishSafe is to help organizations improve employee security awareness through authorized phishing simulations. The application uses one authentication system for all users and shows different functionality according to each user’s role. A client can purchase a service plan, prepare target groups, templates and educational landing pages, and submit a campaign request. A campaign cannot send immediately: it first enters an approval queue. An administrator reviews the target audience and campaign content, then approves the request for delivery or rejects it with a request for changes. After an approved simulation is sent, the platform records delivery, open, click and simulated compromise events and presents them as analytics. Simulated pages record an event only; submitted passwords are never stored. The two initial administrator accounts are gradinarumanuel99@gmail.com and alexxperian@gmail.com.
+
+OVERALL FUNCTIONALITY
+- Register and sign in through one shared authentication page.
+- Automatically display the correct workspace according to the user role.
+- Purchase a monthly phishing-awareness service using Stripe Checkout.
+- Create and manage authorized employee audience groups with a validated semicolon-based recipient editor.
+- Start with 12 reusable email scenarios and 12 educational landing-page designs.
+- Create reusable simulation email templates and educational landing pages.
+- Submit a campaign for administrator review instead of sending immediately.
+- Approve or reject campaign requests before emails can be delivered.
+- Track sent, opened, clicked and simulated-compromise events in real time.
+- View campaign analytics, recent activity and awareness indicators.
+- Manage users and roles from the administrator workspace.
+- Support desktop, tablet and mobile screen sizes, light/dark themes and keyboard-friendly controls.
+
+PAGES, FUNCTIONALITY AND FEATURES
+1. Login / Registration (/login)
+   A common login and registration page for every user. Supabase Auth validates email/password accounts and also supports Google sign-in. The account email and stored profile decide whether the user sees client or administrator features.
+
+2. Dashboard Overview (/dashboard)
+   Shows delivery totals, open rate, click rate, risk events, an engagement chart, awareness score and recent campaigns. Administrators also see a shortcut to pending approvals.
+
+3. New Campaign Request (/dashboard/campaigns/create)
+   Lets a client choose a campaign name, email template, authorized target group and educational landing page. Submitting creates a campaign with pending_approval status. It does not send emails.
+
+4. Campaign Details (/dashboard/campaigns/[id])
+   Displays the selected campaign status, totals, target status and chronological event log. Live Supabase subscriptions update analytics when events occur.
+
+5. Approval Queue (/dashboard/requests) - Administrator only
+   Lists campaign requests across all clients. The administrator reviews the content and audience, approves delivery, or rejects the request. Only approval starts the email-delivery function.
+
+6. Plans and Billing (/dashboard/services)
+   Displays Starter, Growth and Enterprise service packages. The purchase button creates a hosted Stripe Checkout session, so card data is processed by Stripe and not by the application.
+
+7. Audiences (/dashboard/groups)
+   Lets clients create, view, edit and delete authorized target groups and the email recipients inside them.
+
+8. Email Templates (/dashboard/templates)
+   Lets clients build and manage reusable training email content. The {{link}} placeholder is replaced with a tracked educational link after approval.
+
+9. Landing Pages (/dashboard/landing-pages)
+   Lets clients create educational simulation pages. Public campaign links can display these pages, while submitted credentials are never saved.
+
+10. Account Management (/dashboard/users) - Administrator only
+    Lists all Supabase Auth accounts and lets an administrator change roles, suspend or restore sign-in, and delete accounts. The two project-owner emails are protected administrators and cannot be demoted, suspended or deleted.
+
+11. Stripe Payment Result (/dashboard/services/success)
+    Confirms that Stripe Checkout returned successfully and guides the client toward creating a campaign request.
+
+USER TYPES
+1. Client
+   Can purchase services, manage only their own audiences/templates/landing pages, submit campaign requests, and view analytics for their own campaigns. A client cannot approve or send a campaign directly and cannot manage another account.
+
+2. Administrator
+   Can view platform-wide analytics and campaign requests, approve or reject requests, manage user roles, and access all client campaign data needed for review. The initial administrators are Manuel Gradinaru and Alex Perian, identified by their specified email addresses.
+
+TECHNOLOGIES AND FRAMEWORKS
+- HTML5 and accessible semantic markup
+- CSS3 and Tailwind CSS 4 for responsive styling
+- JavaScript / TypeScript
+- React 19 for interactive user-interface components
+- Next.js 16 App Router for pages, server actions, middleware and API routes
+- Supabase Auth for authentication
+- Supabase PostgreSQL for relational data storage
+- Supabase Realtime for live campaign-event updates
+- Row Level Security (RLS) for permission enforcement
+- Stripe Checkout API for test and production payments
+- Nodemailer and SMTP for approved email delivery
+- Lucide React for interface icons
+- Node.js and npm for development and package management
+- Git for source-code version control
+
+DATABASE STRUCTURE
+1. profiles
+   id (UUID, primary key and reference to auth.users), email, full_name, avatar_url, role (client/admin), created_at. Stores application-specific user information and permission level.
+
+2. groups
+   id (UUID, primary key), user_id (owner), name, created_at. Represents an authorized campaign audience owned by a client.
+
+3. targets
+   id (UUID, primary key), group_id (foreign key), email, name. Contains the training recipients in an audience group.
+
+4. email_templates
+   id (UUID, primary key), user_id (owner), name, subject, body_html, created_at. Stores reusable simulation emails.
+
+5. landing_pages
+   id (UUID, primary key), user_id (owner), name, url_slug, html_content, created_at. Stores educational pages shown after a tracked click.
+
+6. campaigns
+   id (UUID, primary key), user_id (requesting client), title, template_id, group_id, landing_page_url, status (draft/pending_approval/sent/rejected), requested_at, approved_at, approved_by, rejection_reason, created_at. Connects campaign resources and implements the approval workflow.
+
+7. events
+   id (UUID, primary key), campaign_id (foreign key), target_email, event_type (sent/opened/clicked/compromised), user_agent, ip_address, created_at. Stores analytics without storing submitted passwords.
+
+8. orders
+   id (UUID, primary key), user_id (buyer), stripe_session_id, plan, amount_cents, currency, status, created_at. Stores billing references and subscription purchase state. Card details remain in Stripe.
+
+SECURITY AND PERMISSIONS
+Supabase Row Level Security limits clients to records they own. Administrator policies permit platform-wide review only for administrator accounts. Protected routes verify the signed-in user on the server. Campaign email delivery can run only from the administrator approval action. Stripe secrets, SMTP passwords and Supabase service credentials are stored in environment variables and are not committed to source control. The project must be used only for authorized educational simulations.

@@ -2,19 +2,22 @@
 
 import { createTemplate } from '../actions'
 import { useState } from 'react'
+import Link from 'next/link'
 
 export default function CreateTemplatePage() {
     const [loading, setLoading] = useState(false)
+    const [error, setError] = useState('')
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         setLoading(true)
+        setError('')
         const formData = new FormData(e.currentTarget)
         try {
             await createTemplate(formData)
-        } catch (error) {
-            console.error(error)
-            alert('Failed to create template')
+        } catch (submitError) {
+            console.error(submitError)
+            setError(submitError instanceof Error ? submitError.message : 'Failed to create template')
             setLoading(false)
         }
     }
@@ -71,13 +74,15 @@ export default function CreateTemplatePage() {
                     </p>
                 </div>
 
-                <div className="flex justify-end">
+                {error && <div className="auth-message error">{error}</div>}
+                <div className="flex justify-end gap-2">
+                    <Link href="/dashboard/templates" className="button secondary">Cancel</Link>
                     <button
                         type="submit"
                         disabled={loading}
-                        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                        className="button primary"
                     >
-                        {loading ? 'Creating...' : 'Create Template'}
+                        {loading ? 'Creating…' : 'Create template'}
                     </button>
                 </div>
             </form>

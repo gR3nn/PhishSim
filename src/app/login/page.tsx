@@ -1,138 +1,76 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowRight, BarChart3, Check, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [loading, setLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-    const [isSignUp, setIsSignUp] = useState(false)
-    const [message, setMessage] = useState<string | null>(null)
-    const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+  const [isSignUp, setIsSignUp] = useState(false)
+  const router = useRouter()
+
+  async function handleAuth(event: React.FormEvent) {
+    event.preventDefault(); setLoading(true); setError(null); setMessage(null)
     const supabase = createClient()
-
-    const handleAuth = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
-        setError(null)
-        setMessage(null)
-
-        if (isSignUp) {
-            const { error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    emailRedirectTo: `${location.origin}/auth/callback`,
-                },
-            })
-            if (error) {
-                setError(error.message)
-            } else {
-                setMessage('Check your email for the confirmation link.')
-            }
-        } else {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            })
-            if (error) {
-                setError(error.message)
-            } else {
-                router.push('/dashboard')
-                router.refresh()
-            }
-        }
-        setLoading(false)
+    if (isSignUp) {
+      const { error: authError } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}/auth/callback` } })
+      if (authError) setError(authError.message); else setMessage('Check your inbox to confirm your new workspace account.')
+    } else {
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      if (authError) setError(authError.message); else { router.push('/dashboard'); router.refresh() }
     }
+    setLoading(false)
+  }
 
-    const handleGoogleLogin = async () => {
-        await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: `${location.origin}/auth/callback`,
-            },
-        })
-    }
+  async function handleGoogleLogin() {
+    const supabase = createClient()
+    setLoading(true); setError(null)
+    const { error: authError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${location.origin}/auth/callback` } })
+    if (authError) { setError(authError.message); setLoading(false) }
+  }
 
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
-            <div className="max-w-md w-full space-y-8 p-8 bg-white dark:bg-gray-800 rounded-lg shadow transition-colors">
-                <div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-                        {isSignUp ? 'Create an account' : 'Sign in to PhishSim Admin'}
-                    </h2>
-                </div>
-                <form className="mt-8 space-y-6" onSubmit={handleAuth}>
-                    <div className="rounded-md shadow-sm -space-y-px">
-                        <div>
-                            <input
-                                type="email"
-                                required
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-700"
-                                placeholder="Email address"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <input
-                                type="password"
-                                required
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm bg-white dark:bg-gray-700"
-                                placeholder="Password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                        </div>
-                    </div>
+  async function handleForgotPassword() {
+    setError(null); setMessage(null)
+    if (!email) return setError('Enter your email address first, then select “Forgot password?”.')
+    setLoading(true)
+    const supabase = createClient()
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/auth/callback?next=/dashboard/account` })
+    if (resetError) setError(resetError.message)
+    else setMessage('Password-reset instructions were sent to your email.')
+    setLoading(false)
+  }
 
-                    {error && <div className="text-red-500 dark:text-red-400 text-sm">{error}</div>}
-                    {message && <div className="text-green-500 dark:text-green-400 text-sm">{message}</div>}
-
-                    <div>
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                        >
-                            {loading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Sign in')}
-                        </button>
-                    </div>
-                </form>
-
-                <div className="text-center">
-                    <button
-                        type="button"
-                        onClick={() => setIsSignUp(!isSignUp)}
-                        className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors"
-                    >
-                        {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-                    </button>
-                </div>
-
-                <div className="mt-6">
-                    <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-gray-300 dark:border-gray-600" />
-                        </div>
-                        <div className="relative flex justify-center text-sm">
-                            <span className="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors">Or continue with</span>
-                        </div>
-                    </div>
-
-                    <div className="mt-6">
-                        <button
-                            onClick={handleGoogleLogin}
-                            className="w-full flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                        >
-                            {isSignUp ? 'Sign up with Google' : 'Sign in with Google'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
+  return <main className="auth-page">
+    <section className="auth-story">
+      <div className="auth-orb orb-one"/><div className="auth-orb orb-two"/>
+      <Link className="brand auth-brand" href="/"><span className="brand-mark"><ShieldCheck size={21}/></span><span>Phish<span>Safe</span></span></Link>
+      <div className="auth-story-copy"><p className="eyebrow">Human-first security</p><h1>Turn risky clicks into <em>safer instincts.</em></h1><p>Plan ethical phishing simulations, protect every send with administrator approval, and see where training makes a difference.</p><ul><li><Check size={16}/> Permission-based campaign workflow</li><li><Check size={16}/> Live, privacy-conscious analytics</li><li><Check size={16}/> One login, role-aware experience</li></ul></div>
+      <div className="auth-preview"><div><BarChart3 size={18}/><span><strong>+24%</strong><small>awareness growth</small></span></div><div className="preview-bars"><i/><i/><i/><i/><i/></div></div>
+      <p className="auth-copyright">© 2026 PhishSafe · Educational security platform</p>
+    </section>
+    <section className="auth-form-side">
+      <div className="auth-form-wrap">
+        <p className="auth-mobile-brand"><ShieldCheck size={20}/> PhishSafe</p>
+        <p className="eyebrow">{isSignUp ? 'Create workspace access' : 'Welcome back'}</p>
+        <h2>{isSignUp ? 'Create your account' : 'Sign in to your workspace'}</h2>
+        <p className="auth-intro">{isSignUp ? 'Join as a client. Administrators are recognized automatically.' : 'The same secure login works for clients and administrators.'}</p>
+        <form onSubmit={handleAuth} className="auth-form">
+          <div className="field"><label htmlFor="email">Email address</label><input id="email" type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com"/></div>
+          <div className="field"><div className="label-row"><label htmlFor="password">Password</label>{!isSignUp && <button type="button" onClick={handleForgotPassword} disabled={loading}>Forgot password?</button>}</div><div className="password-field"><input id="password" type={showPassword ? 'text' : 'password'} minLength={6} required autoComplete={isSignUp ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 6 characters"/><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></div></div>
+          {error && <div className="auth-message error">{error}</div>}{message && <div className="auth-message success">{message}</div>}
+          <button className="auth-submit" disabled={loading}>{loading ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}<ArrowRight size={17}/></button>
+        </form>
+        <div className="auth-divider"><span>or continue with</span></div>
+        <button className="google-button" onClick={handleGoogleLogin} disabled={loading}><span>G</span>{loading ? 'Connecting…' : 'Google'}</button>
+        <p className="auth-switch">{isSignUp ? 'Already have an account?' : 'New to PhishSafe?'} <button onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null) }}>{isSignUp ? 'Sign in' : 'Create an account'}</button></p>
+      </div>
+    </section>
+  </main>
 }

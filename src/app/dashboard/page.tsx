@@ -1,8 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import DashboardClient from './DashboardClient'
+import { getRole } from '@/lib/authz'
 
 export default async function DashboardPage() {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: profile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle() : { data: null }
 
     // Fetch initial stats
     // We can do this with 4 queries or one group by.
@@ -36,15 +39,32 @@ export default async function DashboardPage() {
         compromised: compromised || 0,
     }
 
+    const since = new Date()
+    since.setUTCHours(0, 0, 0, 0)
+    since.setUTCDate(since.getUTCDate() - 29)
+    const { data: recentEvents } = await supabase
+        .from('events')
+        .select('created_at,event_type')
+        .gte('created_at', since.toISOString())
+        .in('event_type', ['sent', 'opened', 'clicked', 'compromised'])
+    const dailyActivity = Array.from({ length: 30 }, (_, index) => {
+        const date = new Date(since)
+        date.setUTCDate(since.getUTCDate() + index)
+        const key = date.toISOString().slice(0, 10)
+        return {
+            key,
+            label: date.toLocaleDateString('en', { weekday: 'short', timeZone: 'UTC' }),
+            sent: (recentEvents || []).filter((event) => event.created_at.slice(0, 10) === key && event.event_type === 'sent').length,
+            opened: (recentEvents || []).filter((event) => event.created_at.slice(0, 10) === key && event.event_type === 'opened').length,
+            clicked: (recentEvents || []).filter((event) => event.created_at.slice(0, 10) === key && event.event_type === 'clicked').length,
+            compromised: (recentEvents || []).filter((event) => event.created_at.slice(0, 10) === key && event.event_type === 'compromised').length,
+        }
+    })
+
     const { data: campaigns } = await supabase
         .from('campaigns')
         .select('*')
         .order('created_at', { ascending: false })
 
-    return (
-        <div className="p-8">
-            <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Dashboard Overview</h1>
-            <DashboardClient initialStats={initialStats} campaigns={campaigns || []} />
-        </div>
-    )
+    return <DashboardClient initialStats={initialStats} campaigns={campaigns || []} role={getRole(user?.email, profile?.role)} dailyActivity={dailyActivity} />
 }

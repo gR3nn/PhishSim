@@ -1,12 +1,13 @@
 {
-  "name": "temp_app",
+  "name": "phishsafe",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:defaults": "node --env-file=.env.local scripts/seed-default-content.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

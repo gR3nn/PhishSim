@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
                     return request.cookies.getAll()
                 },
                 setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) =>
+                    cookiesToSet.forEach(({ name, value }) =>
                         request.cookies.set(name, value)
                     )
                     response = NextResponse.next({
@@ -45,15 +45,6 @@ export async function middleware(request: NextRequest) {
     // Redirect /login to /dashboard if already logged in
     if (request.nextUrl.pathname === '/login' && user) {
         return NextResponse.redirect(new URL('/dashboard', request.url))
-    }
-
-    // Handle root path /
-    if (request.nextUrl.pathname === '/') {
-        if (user) {
-            return NextResponse.redirect(new URL('/dashboard', request.url))
-        } else {
-            return NextResponse.redirect(new URL('/login', request.url))
-        }
     }
 
     return response

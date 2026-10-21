@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { launchCampaign } from '../actions'
+import Link from 'next/link'
+import { SubmitButton } from '@/components/submit-button'
 
 export default async function CreateCampaignPage() {
     const supabase = await createClient()
@@ -31,84 +33,63 @@ export default async function CreateCampaignPage() {
     ]
 
     return (
-        <div className="p-8 max-w-2xl mx-auto">
-            <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">Launch New Campaign</h1>
-
-            <form action={launchCampaign} className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow transition-colors">
-                <div>
-                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Campaign Title
-                    </label>
+        <div className="content-page">
+            <section className="page-heading"><div><p className="eyebrow">Campaign builder</p><h1>Request a new simulation</h1><p>Prepare the training scenario and submit it. An administrator will review the audience and content before any email is delivered.</p></div></section>
+            <div className="request-layout">
+            <form action={launchCampaign} className="form-card">
+                <section className="form-section"><h2>Campaign details</h2><p>Give this simulation a clear internal name.</p><div className="form-grid"><div className="field full">
+                    <label htmlFor="title">Campaign name</label>
                     <input
                         type="text"
                         name="title"
                         id="title"
                         required
-                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        placeholder="e.g. Q4 Phishing Test"
+                        placeholder="e.g. Q4 invoice awareness"
                     />
-                </div>
+                    <small>Only workspace members and administrators can see this name.</small>
+                </div></div></section>
 
-                <div>
-                    <label htmlFor="templateId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Select Email Template
-                    </label>
+                <section className="form-section"><h2>Training scenario</h2><p>Connect a message, authorized audience, and educational landing page.</p><div className="form-grid"><div className="field">
+                    <label htmlFor="templateId">Email template</label>
                     <select
                         name="templateId"
                         id="templateId"
                         required
-                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                        <option value="">-- Select Template --</option>
+                        <option value="">Choose a template</option>
                         {templates?.map((t) => (
                             <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                     </select>
-                </div>
-
-                <div>
-                    <label htmlFor="groupId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Select Target Group
-                    </label>
+                </div><div className="field">
+                    <label htmlFor="groupId">Authorized audience</label>
                     <select
                         name="groupId"
                         id="groupId"
                         required
-                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                        <option value="">-- Select Group --</option>
+                        <option value="">Choose an audience</option>
                         {groups?.map((g) => (
                             <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
                     </select>
-                </div>
-
-                <div>
-                    <label htmlFor="landingPageUrl" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Select Landing Page
-                    </label>
+                </div><div className="field full">
+                    <label htmlFor="landingPageUrl">Learning landing page</label>
                     <select
                         name="landingPageUrl"
                         id="landingPageUrl"
                         required
-                        className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                        <option value="">-- Select Landing Page --</option>
+                        <option value="">Choose a landing page</option>
                         {landingPages.map((p) => (
                             <option key={p.url} value={p.url}>{p.name}</option>
                         ))}
                     </select>
-                </div>
-
-                <div className="flex justify-end pt-4">
-                    <button
-                        type="submit"
-                        className="bg-red-600 text-white px-6 py-3 rounded-md hover:bg-red-700 font-bold flex items-center transition-colors"
-                    >
-                        🚀 Launch Campaign
-                    </button>
-                </div>
+                </div></div></section>
+                <div className="form-actions"><Link href="/dashboard" className="button secondary">Cancel</Link><SubmitButton label="Submit for approval" pendingLabel="Submitting request…" /></div>
             </form>
+            <aside className="approval-note"><span>01</span><div><strong>Prepare</strong><p>Select your training content and authorized employee audience.</p></div><span>02</span><div><strong>Admin review</strong><p>An administrator checks consent, scope, and safety.</p></div><span>03</span><div><strong>Deliver & learn</strong><p>Approved campaigns send and live results appear in analytics.</p></div></aside>
+            </div>
         </div>
     )
 }
