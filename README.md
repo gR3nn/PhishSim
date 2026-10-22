@@ -11,6 +11,7 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
 -   **Email Templates**: Customizable HTML email templates with dynamic tracking links.
 -   **Audience Builder**: Write or paste validated recipients using `email@example.com, Name;` format.
 -   **Starter Libraries**: Seed 12 email templates and 12 educational landing pages for every current account.
+-   **AI Landing-page Generator**: Upload reference photos/videos and a comment, and Google Gemini drafts a self-contained HTML page into the editor for review before you save it (nothing is auto-saved).
 -   **Real-time Tracking**: Track email opens, link clicks, and compromised credentials (simulated).
 -   **Interactive Dashboard**: View campaign statistics and detailed event logs in real-time.
 -   **Fake Login Pages**: Realistic login pages to capture "compromised" events (credentials are NOT stored).
@@ -66,7 +67,12 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
 
     # Stripe test-mode secret key
     STRIPE_SECRET_KEY=sk_test_...
+
+    # Google Gemini API key (required for AI landing-page generation)
+    GEMINI_API_KEY=
     ```
+
+    > The AI landing-page generator requires `GEMINI_API_KEY` to be set in `.env.local`/`.env`. Without it, the Generate button returns a friendly "not configured" error and the rest of the app works normally.
 
 4.  **Database Setup:**
     For a new database, run `supabase/schema.sql`, then run `supabase/migrations/20261021_roles_approvals_billing.sql` in the Supabase SQL editor. Existing projects only need the migration.

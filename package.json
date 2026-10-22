@@ -10,6 +10,7 @@
     "seed:defaults": "node --env-file=.env.local scripts/seed-default-content.mjs"
   },
   "dependencies": {
+    "@google/genai": "^2.30.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.87.1",
     "class-variance-authority": "^0.7.1",
