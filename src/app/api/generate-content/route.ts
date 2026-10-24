@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { generateLandingPageHtml, type GeminiMedia } from '@/lib/gemini'
+import { generateHtmlWithAi, type AiImage } from '@/lib/ai'
 
 const MAX_TOTAL_BYTES = 20 * 1024 * 1024 // ~20MB total payload guard
 
@@ -17,13 +17,14 @@ export async function POST(request: Request) {
     try {
         const formData = await request.formData()
         const prompt = (formData.get('prompt') as string | null)?.trim() ?? ''
+        const kind = formData.get('kind') === 'email' ? 'email' : 'landing'
         const files = formData
             .getAll('files')
             .filter((entry): entry is File => entry instanceof File)
 
         if (!prompt && files.length === 0) {
             return NextResponse.json(
-                { error: 'Add a comment or at least one file to generate a page.' },
+                { error: 'Add a comment or at least one file to generate content.' },
                 { status: 400 }
             )
         }
@@ -46,30 +47,38 @@ export async function POST(request: Request) {
             )
         }
 
-        const media: GeminiMedia[] = await Promise.all(
-            files.map(async (file) => ({
-                mimeType: file.type,
-                data: Buffer.from(await file.arrayBuffer()).toString('base64'),
-            }))
+        // The model supports images (Visual Understanding) but not video — send
+        // only image files, skipping any uploaded videos.
+        const images: AiImage[] = await Promise.all(
+            files
+                .filter((file) => file.type.startsWith('image/'))
+                .map(async (file) => ({
+                    mimeType: file.type,
+                    data: Buffer.from(await file.arrayBuffer()).toString('base64'),
+                }))
         )
 
-        const html = await generateLandingPageHtml({ prompt, media })
+        const html = await generateHtmlWithAi({ prompt, images, kind })
 
         return NextResponse.json({ html })
     } catch (error) {
-        const message = error instanceof Error ? error.message : ''
-        if (message.includes('GEMINI_API_KEY')) {
+        const message = error instanceof Error ? error.message : String(error)
+
+        if (message.includes('DASHSCOPE_API_KEY')) {
             return NextResponse.json(
                 {
-                    error: 'AI generation is not configured. Set GEMINI_API_KEY in your environment.',
+                    error: 'AI generation is not configured. Set DASHSCOPE_API_KEY in your environment.',
                 },
                 { status: 500 }
             )
         }
 
-        console.error('Error generating landing page:', error)
+        console.error('Error generating content:', error)
         return NextResponse.json(
-            { error: 'Failed to generate the landing page.' },
+            {
+                // Surface the exact reason the request failed so it can be diagnosed.
+                error: `Failed to generate the content: ${message || 'Unknown error'}`,
+            },
             { status: 500 }
         )
     }
