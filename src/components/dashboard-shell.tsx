@@ -65,7 +65,7 @@ export function DashboardShell({ children, email, name, role, notifications }: {
         <header className="topbar">
           <div className="topbar-left">
             <button className="mobile-menu" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu size={21} /></button>
-            <div><p className="topbar-kicker">Security awareness platform</p><p className="topbar-title">Welcome back, {name.split(' ')[0]}</p></div>
+            <div className="topbar-heading"><p className="topbar-kicker">Security awareness platform</p><p className="topbar-title">Welcome back, {name.split(' ')[0]}</p></div>
           </div>
           <div className="topbar-actions">
             <span className={`role-pill ${role}`}><span />{role === 'admin' ? 'Admin mode' : 'Client mode'}</span>
