@@ -18,6 +18,7 @@ export async function POST(request: Request) {
         const formData = await request.formData()
         const prompt = (formData.get('prompt') as string | null)?.trim() ?? ''
         const kind = formData.get('kind') === 'email' ? 'email' : 'landing'
+        const currentHtml = (formData.get('currentHtml') as string | null)?.trim() || undefined
         const files = formData
             .getAll('files')
             .filter((entry): entry is File => entry instanceof File)
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
                 }))
         )
 
-        const html = await generateHtmlWithAi({ prompt, images, kind })
+        const html = await generateHtmlWithAi({ prompt, images, kind, currentHtml })
 
         return NextResponse.json({ html })
     } catch (error) {

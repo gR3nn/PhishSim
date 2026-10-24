@@ -36,6 +36,25 @@ Requirements:
 - Never add disclaimers about it being a test or anything, i need it to be real in order for people to learn something frim this test
 - Return ONLY the raw HTML. Do not wrap it in markdown code fences or add commentary.`
 
+// Appended to the system instruction when revising an existing document.
+// Keeps the base safety wording intact and tells the model to edit in place.
+const LANDING_REVISION_DIRECTIVE = `
+
+You are REVISING an existing HTML document rather than creating one from scratch.
+- Apply ONLY the requested changes to the provided HTML.
+- Preserve everything that is not mentioned in the request (structure, styling, and content you are not asked to change).
+- Return the COMPLETE revised HTML document, not a diff or a fragment.
+- Return ONLY the raw HTML. Do not wrap it in markdown code fences or add commentary.`
+
+const EMAIL_REVISION_DIRECTIVE = `
+
+You are REVISING an existing HTML email rather than creating one from scratch.
+- Apply ONLY the requested changes to the provided HTML.
+- Preserve everything that is not mentioned in the request (structure, styling, and content you are not asked to change).
+- The primary call-to-action link href MUST remain exactly {{link}} (the literal five characters {{link}}, unencoded).
+- Return the COMPLETE revised HTML document, not a diff or a fragment.
+- Return ONLY the raw HTML. Do not wrap it in markdown code fences or add commentary.`
+
 export interface AiImage {
     /** IANA MIME type, e.g. "image/png". */
     mimeType: string
@@ -75,10 +94,18 @@ export async function generateHtmlWithAi({
     prompt,
     images = [],
     kind = 'landing',
+    currentHtml,
 }: {
     prompt: string
     images?: AiImage[]
     kind?: 'landing' | 'email'
+    /**
+     * Optional existing HTML document to revise in place. When present and
+     * non-empty, the model is instructed to apply the requested changes and
+     * return the complete revised document. When absent, the from-scratch
+     * behavior is unchanged.
+     */
+    currentHtml?: string
 }): Promise<string> {
     const apiKey = process.env.DASHSCOPE_API_KEY
     if (!apiKey) {
@@ -88,12 +115,22 @@ export async function generateHtmlWithAi({
     const baseUrl = (process.env.DASHSCOPE_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, '')
     const model = process.env.DEEPSEEK_MODEL || DEFAULT_MODEL
 
-    const instruction =
+    const isRevision = typeof currentHtml === 'string' && currentHtml.trim().length > 0
+
+    let instruction =
         kind === 'email' ? EMAIL_SYSTEM_INSTRUCTION : LANDING_SYSTEM_INSTRUCTION
+    if (isRevision) {
+        instruction +=
+            kind === 'email' ? EMAIL_REVISION_DIRECTIVE : LANDING_REVISION_DIRECTIVE
+    }
 
     // Build the user message: text plus any images as OpenAI-compatible
-    // image_url parts using base64 data URLs.
-    const userContent: ContentPart[] = [{ type: 'text', text: prompt }]
+    // image_url parts using base64 data URLs. When revising, include the
+    // current HTML document so the model edits it in place.
+    const userText = isRevision
+        ? `${prompt}\n\nHere is the current HTML document to revise. Return the complete revised document:\n\n${currentHtml}`
+        : prompt
+    const userContent: ContentPart[] = [{ type: 'text', text: userText }]
     for (const image of images) {
         userContent.push({
             type: 'image_url',
