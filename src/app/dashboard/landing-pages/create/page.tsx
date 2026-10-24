@@ -6,6 +6,22 @@ import { FileCode2, Save } from 'lucide-react'
 import { createLandingPage } from '../actions'
 import AiHtmlEditor from '@/components/ai-html-editor'
 
+const handoffKey = 'phishsafe:create-handoff:landing'
+
+// Read (and clear) the AI create-with-AI handoff once, at mount, in the browser.
+function readHandoff(): string | null {
+  if (typeof window === 'undefined') return null
+  const stored = sessionStorage.getItem(handoffKey)
+  if (!stored) return null
+  sessionStorage.removeItem(handoffKey)
+  try {
+    const { html: handoffHtml } = JSON.parse(stored)
+    return typeof handoffHtml === 'string' && handoffHtml.length > 0 ? handoffHtml : null
+  } catch {
+    return null
+  }
+}
+
 const starterHtml = `<div style="min-height:100vh;padding:60px 20px;background:#f3f6f8;font-family:Arial,sans-serif;color:#101828;box-sizing:border-box">
   <main style="max-width:640px;margin:auto;padding:44px;background:white;border-radius:20px;box-shadow:0 20px 55px #10182820">
     <div style="width:52px;height:52px;display:grid;place-items:center;border-radius:15px;background:#dff9ee;color:#16805a;font-size:24px">✓</div>
@@ -19,7 +35,9 @@ const starterHtml = `<div style="min-height:100vh;padding:60px 20px;background:#
 export default function CreateLandingPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [html, setHtml] = useState(starterHtml)
+  const [handoffHtml] = useState(readHandoff)
+  const [html, setHtml] = useState(handoffHtml ?? starterHtml)
+  const initialTab = handoffHtml ? 'preview' : 'code'
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -100,6 +118,7 @@ export default function CreateLandingPage() {
           textareaName="htmlContent"
           textareaRequired
           starterHtml={starterHtml}
+          initialTab={initialTab}
         />
       </form>
     </div>

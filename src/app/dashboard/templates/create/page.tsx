@@ -6,6 +6,22 @@ import Link from 'next/link'
 import { FileCode2, Save } from 'lucide-react'
 import AiHtmlEditor from '@/components/ai-html-editor'
 
+const handoffKey = 'phishsafe:create-handoff:template'
+
+// Read (and clear) the AI create-with-AI handoff once, at mount, in the browser.
+function readHandoff(): string | null {
+    if (typeof window === 'undefined') return null
+    const stored = sessionStorage.getItem(handoffKey)
+    if (!stored) return null
+    sessionStorage.removeItem(handoffKey)
+    try {
+        const { html: handoffHtml } = JSON.parse(stored)
+        return typeof handoffHtml === 'string' && handoffHtml.length > 0 ? handoffHtml : null
+    } catch {
+        return null
+    }
+}
+
 const emailStarterHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f6f8;padding:32px 0;font-family:Arial,sans-serif">
   <tr>
     <td align="center">
@@ -28,7 +44,9 @@ const emailStarterHtml = `<table role="presentation" width="100%" cellpadding="0
 export default function CreateTemplatePage() {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
-    const [bodyHtml, setBodyHtml] = useState(emailStarterHtml)
+    const [handoffHtml] = useState(readHandoff)
+    const [bodyHtml, setBodyHtml] = useState(handoffHtml ?? emailStarterHtml)
+    const initialTab = handoffHtml ? 'preview' : 'code'
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -104,6 +122,7 @@ export default function CreateTemplatePage() {
                     textareaName="bodyHtml"
                     textareaRequired
                     starterHtml={emailStarterHtml}
+                    initialTab={initialTab}
                 />
             </form>
         </div>
