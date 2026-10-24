@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { Code2, Eye, FileCode2, Save, Sparkles, X } from 'lucide-react'
+import { FileCode2, Save } from 'lucide-react'
 import { createLandingPage } from '../actions'
+import AiHtmlEditor from '@/components/ai-html-editor'
 
 const starterHtml = `<div style="min-height:100vh;padding:60px 20px;background:#f3f6f8;font-family:Arial,sans-serif;color:#101828;box-sizing:border-box">
   <main style="max-width:640px;margin:auto;padding:44px;background:white;border-radius:20px;box-shadow:0 20px 55px #10182820">
@@ -19,11 +20,6 @@ export default function CreateLandingPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [html, setHtml] = useState(starterHtml)
-  const [tab, setTab] = useState<'code' | 'preview'>('code')
-  const [files, setFiles] = useState<File[]>([])
-  const [aiPrompt, setAiPrompt] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
-  const [aiError, setAiError] = useState('')
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -34,37 +30,6 @@ export default function CreateLandingPage() {
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Failed to create landing page')
       setLoading(false)
-    }
-  }
-
-  function addFiles(selected: FileList | null) {
-    if (selected) setFiles((prev) => [...prev, ...Array.from(selected)])
-  }
-
-  function removeFile(index: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  async function handleGenerate() {
-    setAiLoading(true)
-    setAiError('')
-    try {
-      const form = new FormData()
-      form.append('prompt', aiPrompt)
-      form.append('kind', 'landing')
-      files.forEach((file) => form.append('files', file))
-      const res = await fetch('/api/generate-content', { method: 'POST', body: form })
-      const data = await res.json()
-      if (!res.ok) {
-        setAiError(data.error || 'Failed to generate the landing page.')
-        return
-      }
-      setHtml(data.html)
-      setTab('preview')
-    } catch {
-      setAiError('Failed to generate the landing page.')
-    } finally {
-      setAiLoading(false)
     }
   }
 
@@ -110,68 +75,6 @@ export default function CreateLandingPage() {
             <small>Letters, numbers and hyphens only.</small>
           </div>
 
-          <div className="landing-ai">
-            <div className="landing-ai-title">
-              <span>
-                <Sparkles size={15} />
-              </span>
-              <div>
-                <h3>AI generator</h3>
-                <p>Upload photos, describe the page, and let AI draft the HTML.</p>
-              </div>
-            </div>
-
-            <div className="field">
-              <label htmlFor="aiFiles">Reference media</label>
-              <input
-                id="aiFiles"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(event) => {
-                  addFiles(event.target.files)
-                  event.target.value = ''
-                }}
-              />
-              <small>Images only — videos are not used by the AI. Describe any motion in the comment instead.</small>
-            </div>
-
-            {files.length > 0 && (
-              <ul className="ai-files">
-                {files.map((file, index) => (
-                  <li key={`${file.name}-${index}`}>
-                    <span>{file.name}</span>
-                    <button type="button" onClick={() => removeFile(index)} aria-label={`Remove ${file.name}`}>
-                      <X size={12} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="field">
-              <label htmlFor="aiPrompt">Comment / prompt</label>
-              <textarea
-                id="aiPrompt"
-                value={aiPrompt}
-                onChange={(event) => setAiPrompt(event.target.value)}
-                placeholder="e.g. A friendly payroll update notice with our logo colours."
-              />
-            </div>
-
-            {aiError && <div className="auth-message error">{aiError}</div>}
-
-            <button
-              type="button"
-              className="button secondary ai-generate"
-              onClick={handleGenerate}
-              disabled={aiLoading}
-            >
-              <Sparkles size={14} />
-              {aiLoading ? 'Generating…' : 'Generate with AI'}
-            </button>
-          </div>
-
           <div className="studio-safety">
             <strong>Privacy by design</strong>
             <p>Use this page to teach. Do not request or store real credentials.</p>
@@ -190,34 +93,14 @@ export default function CreateLandingPage() {
           </div>
         </section>
 
-        <section className="landing-editor">
-          <div className="editor-tabs">
-            <div>
-              <button type="button" className={tab === 'code' ? 'active' : ''} onClick={() => setTab('code')}>
-                <Code2 size={14} />
-                HTML
-              </button>
-              <button type="button" className={tab === 'preview' ? 'active' : ''} onClick={() => setTab('preview')}>
-                <Eye size={14} />
-                Preview
-              </button>
-            </div>
-            <span>Live preview</span>
-          </div>
-
-          <textarea
-            name="htmlContent"
-            value={html}
-            onChange={(event) => setHtml(event.target.value)}
-            className={tab === 'code' ? 'studio-code' : 'hidden'}
-            spellCheck={false}
-            required
-          />
-
-          <div className={tab === 'preview' ? 'studio-preview' : 'hidden'}>
-            <iframe title="Landing page preview" srcDoc={html} sandbox="" />
-          </div>
-        </section>
+        <AiHtmlEditor
+          kind="landing"
+          html={html}
+          onHtmlChange={setHtml}
+          textareaName="htmlContent"
+          textareaRequired
+          starterHtml={starterHtml}
+        />
       </form>
     </div>
   )

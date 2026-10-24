@@ -22,13 +22,16 @@ export default async function EditTemplatePage({
     }
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
-            <div className="mb-8">
-                <Link href="/dashboard/templates" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-2 inline-block">
-                    ← Back to Templates
-                </Link>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Edit Template</h1>
-            </div>
+        <div className="content-page">
+            <section className="page-heading">
+                <div>
+                    <Link href="/dashboard/templates" className="eyebrow">
+                        ← Back to Templates
+                    </Link>
+                    <h1>Edit email template</h1>
+                    <p>Update the email body and preview the HTML safely before saving.</p>
+                </div>
+            </section>
 
             <EditTemplateForm
                 template={{
