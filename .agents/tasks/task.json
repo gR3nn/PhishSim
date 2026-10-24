@@ -1,6 +1,6 @@
 {
-  "task_id": "task-deepseek-only-ai-and-template-generation",
-  "task_description": "Remove Gemini so DeepSeek (via Alibaba Cloud Model Studio) is the only AI provider behind a provider-neutral lib and a generalized /api/generate-content route; make all user-facing wording generic (Generate with AI); polish the landing-page create studio UI; add AI generation to the email Templates builder that injects email-safe HTML containing the {{link}} tracking placeholder. Preserve all safety/awareness framing, sandboxed preview iframe, env file and env var names, and existing save flows (no auto-save).",
+  "task_id": "task-ai-builder-ux",
+  "task_description": "PhishSafe AI builder UX overhaul: add optional currentHtml revision to ai.ts + /api/generate-content; extract a shared AiHtmlEditor (Code/Preview sandboxed live preview + Iterate-with-AI panel) used by landing create, template create, and template edit; add a no-draft (sessionStorage handoff) create-mode popup on the templates and landing-pages list pages; keep all three builders consistent and dark-mode styled. Preserve safety framing, sandbox=\"\", env, save flows, field names, and the DashScope request shape. Landing-page edit CRUD is OUT OF SCOPE.",
   "status": "completed",
   "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
   "blocked_reason": null

@@ -1,159 +1,72 @@
-# Implementation Plan — DeepSeek-only AI, generic wording, studio polish, email-template AI
+# Implementation Plan — PhishSafe AI builder UX overhaul
 
-This plan covers all four parts of the task. It is ordered by dependency: the shared AI lib and API route
-(items 1–3) must land before the UI changes that call them. Every item leaves the codebase buildable.
+Next.js 16 App Router + TypeScript + Supabase + Tailwind v4. Package manager: npm. No test framework — do NOT add one. Verification is `npm run build` (+ `npm run lint`) and documented manual runtime checks.
 
-Verification baseline (no test framework exists in this repo — do NOT add one):
-- Build: `npm run build` (Next.js 16 production build; this is the real compile/type-check gate).
-- Lint: `npm run lint` (eslint).
-- There are no unit tests; verification = build passes + lint passes + manual reasoning about the changed file.
+## Scope decisions (made during exploration, grounded in code)
 
-## Key decisions (recorded rationale)
+- **Landing-edit resolution:** `src/app/dashboard/landing-pages/` has ONLY `create/page.tsx`, `page.tsx`, `actions.ts`. There is NO `[id]`/edit route and NO `updateLandingPage` in `actions.ts` (verified). Therefore: do NOT build a landing-page edit CRUD. The landing CREATE page is the full editor (it already has the live preview + AI panel). The "iterate with AI" box is added to the landing CREATE page and to BOTH template surfaces (create + edit). A landing edit page is explicitly OUT OF SCOPE; note it as a future enhancement.
+- **Create-with-AI handoff (Option 2, no draft DB record):** use **`sessionStorage`**. The list-page popup generates HTML (POST `/api/generate-content`, from scratch), stores `{ html }` under a well-known key (`phishsafe:create-handoff:landing` / `phishsafe:create-handoff:template`), then `router.push` to the create page. The create page, on mount, reads+removes that key (one-shot) and seeds editor state. This avoids large HTML in the URL and persists nothing to the DB until Save. Blank path just navigates with no key set. Rationale: survives the client-side navigation, no server round-trip, no draft record, cleared after read so a refresh shows starter content.
+- **Shared vs mirrored editor:** EXTRACT a shared client component `AiHtmlEditor` under `src/components/`. Today the landing studio uses semantic classes (`.landing-editor`, `.editor-tabs`, `.studio-code`, `.studio-preview`, `.landing-ai`) while both template builders use raw Tailwind utility soup — they are inconsistent. A shared component (Code/Preview tabs + sandboxed preview + AI iterate panel) used by all three surfaces is the lowest-duplication way to make them consistent and is required by goal (4). It takes props for `kind`, `html`, `onHtmlChange`, and renders the `<textarea>` the parent `<form>` serializes.
 
-1. **AI-lib rename → `src/lib/ai.ts`, exported fn `generateHtmlWithAi`.** The task wants nothing in UI/routes to
-   say "deepseek". Renaming the module and its export to provider-neutral names achieves that while keeping the
-   DeepSeek/DashScope implementation underneath unchanged. Env var names stay `DASHSCOPE_API_KEY` /
-   `DASHSCOPE_BASE_URL` / `DEEPSEEK_MODEL` (task requires this). Rationale: a single rename localizes "DeepSeek"
-   to internal comments only; all imports get updated in the same item so the build never breaks.
+## MUST NOT CHANGE (preserve exactly)
 
-2. **Single generalized API route with a `kind` param (preferred over a second route).** Generalize
-   `/api/generate-landing-page` → `/api/generate-content` accepting `kind` = `"landing"` | `"email"`. Rationale:
-   one auth gate, one size cap, one error-surfacing path, zero duplication; the only per-kind difference is the
-   system instruction. Both studios POST to the same route with a `kind` field.
-
-3. **Video handling: accept images, silently skip video.** Only the image-capable DeepSeek path remains. The route
-   already filters to `image/*` before sending; we keep accepting `image/*,video/*` validation BUT ignore video
-   bytes (don't send them) and the landing UI's file input accepts `image/*` only, with a small note. Rationale:
-   rejecting outright would regress the user who uploads a mixed set; skipping is the existing, tested behavior.
-   Simpler alternative (reject video with an error) was rejected because the current code already skips and the
-   user tested that path live.
-
-4. **Tracking token to preserve: `{{link}}`.** `src/app/dashboard/campaigns/actions.ts` does
-   `template.body_html.replace(/{{link}}/g, trackingLink)`. Generated emails MUST contain `{{link}}` in the primary
-   CTA or the campaign flow breaks. The email system instruction explicitly requires exactly `{{link}}`.
-
-## MUST NOT CHANGE (safety / integrity invariants)
-- The sandboxed preview iframe `sandbox=""` on the landing studio preview.
-- Safety/awareness framing injected by the app and seed content: "SECURITY AWARENESS TRAINING SIMULATION" markers,
-  "No passwords or private information were stored" / "credentials are NOT stored" guarantees, the PhishSafe
-  learning-moment copy in `scripts/seed-default-content.mjs` (do not touch the seed file).
-- The `.env` file (real secrets, git-ignored) — never read or write it.
-- Env var NAMES: `DASHSCOPE_API_KEY`, `DASHSCOPE_BASE_URL`, `DEEPSEEK_MODEL`.
-- Save flows: `createLandingPage` (landing-pages/actions.ts), `createTemplate`/`updateTemplate`
-  (templates/actions.ts). AI generation must NOT auto-save — human-in-the-loop only.
-- The 401 auth gate, the 20MB total-size cap, image/video mime validation, exact-error surfacing in the API route.
-- The `{{link}}` placeholder convention and the `name` / `subject` / `bodyHtml` form field names + `body_html`
-  DB column for templates.
-
-## System-instruction wording (exact intent, both kinds include the no-disclaimers directive)
-
-Shared preamble (keep the existing self-contained/inline-CSS/no-external-resources/no-exfil/no-real-credentials
-rules and the "ONLY raw HTML, no code fences" rule). Add, for BOTH kinds, the user-requested lines (already present
-in deepseek.ts for landing):
-- "Make the page as realistic as possible and as close to the original as possible, so this is a true phishing
-  simulation."
-- "Never add disclaimers about this being a test or simulation. Do not add any 'this is a test' notice,
-  watermark, or educational banner inside the generated HTML — the realism is required for the training to work."
-
-Landing `kind`: "...building a safe, educational phishing-simulation **landing page**..." (current wording).
-
-Email `kind`: "...building a safe, educational phishing-simulation **training email**... Produce email-safe HTML:
-inline CSS only, a table-based/width-constrained layout (max-width ~600px), no `<script>`, no external CSS/fonts.
-The primary call-to-action link's `href` MUST be exactly `{{link}}` (unencoded, literally the five characters
-`{{link}}`) so the platform can substitute the tracking URL. Return ONLY the raw HTML."
-
-NOTE: the app's own safety markers live OUTSIDE generated output (seed content, awareness pages, the privacy note
-in the studio). The no-disclaimers directive applies only to what the model writes INTO the generated HTML; it does
-NOT remove the app-injected framing. Keep both facts true.
+- Safety framing in `src/lib/ai.ts` system instructions: the educational/authorized-simulation wording, "Do not request or store real credentials", "no external resources", email `{{link}}` hard-requirement, table-based email layout rule. Keep the existing no-disclaimer lines as-is (they are already in the file).
+- Any "SECURITY AWARENESS TRAINING SIMULATION" / "credentials are NOT stored" markers in UI copy (e.g. landing `.studio-safety` block). Keep them.
+- `sandbox=""` on EVERY preview iframe. New previews must also use `sandbox=""`.
+- The DashScope request shape in `ai.ts`: endpoint `${baseUrl}/chat/completions`, bearer `DASHSCOPE_API_KEY`, model `DEEPSEEK_MODEL`/default, `messages:[{role:system},{role:user, content:[{type:text},{type:image_url,...}]}]`, markdown-fence stripping, exact-error surfacing. Only ADD `currentHtml` to the text part; do not restructure the request.
+- `.env` file, all env var names (`DASHSCOPE_API_KEY`, `DASHSCOPE_BASE_URL`, `DEEPSEEK_MODEL`).
+- Save flows: server actions `createLandingPage`, `createTemplate`, `updateTemplate` and their form field names (`name`, `urlSlug`, `htmlContent`; `name`, `subject`, `bodyHtml`, `id`). No auto-save anywhere.
+- API route `/api/generate-content` auth gate (401), image/video mime validation, 20MB cap, video-skip, `{ html }` / `{ error }` responses, exact-error surfacing. New `currentHtml` must be backward compatible (absent = today's from-scratch behavior).
 
 ---
 
-## PART 1 + helper — Shared AI lib and generalized API route
+## Plan
 
-- [ ] 1. Create the provider-neutral AI lib `src/lib/ai.ts` by moving the DeepSeek implementation out of
-      `src/lib/deepseek.ts`. Export `generateHtmlWithAi({ prompt, images, kind })` (kind: 'landing' | 'email',
-      default 'landing') and `type AiImage { mimeType, data }`. Keep the DashScope OpenAI-compatible request shape
-      byte-for-byte (POST `${baseUrl}/chat/completions`, bearer `DASHSCOPE_API_KEY`, messages system+user, image_url
-      base64 data URLs), the markdown-fence stripping, exact-error surfacing, and env defaults. Select the system
-      instruction by `kind` (landing vs email wording above, both with the no-disclaimers lines). Delete
-      `src/lib/deepseek.ts` and `src/lib/gemini.ts`.
-      Files: create `src/lib/ai.ts`; delete `src/lib/deepseek.ts`, `src/lib/gemini.ts`.
-      Verify: `npm run build` fails only on the route import until item 2 — so do items 1+2 together as one buildable
-      unit; after item 2, `npm run build` passes and `npm run lint` passes.
+- [ ] 1. Add optional `currentHtml` revision support to `src/lib/ai.ts`.
+      Extend `generateHtmlWithAi` params with `currentHtml?: string`. Add two revision system instructions (landing + email) OR append a revision directive to the existing instruction when `currentHtml` is present; keep the from-scratch path untouched when absent. When present, the USER message text must instruct: "Apply the requested changes to the HTML document below and return the COMPLETE revised HTML document. Preserve everything not mentioned. Return ONLY raw HTML." then the current HTML. For `kind==='email'` the revision directive MUST restate: the primary CTA href must remain exactly `{{link}}`. Do NOT touch the DashScope request shape, fence-stripping, or error handling.
+      Files: src/lib/ai.ts
+      Verify: `npm run build` succeeds (type-check passes). Confirm `currentHtml` is optional (no caller breaks).
 
-- [ ] 2. Rewrite `src/app/api/generate-content/route.ts` (rename the folder from `generate-landing-page` to
-      `generate-content`). Remove the `provider` field and the Gemini branch. Read `kind` (default 'landing'),
-      keep the 401 gate, 20MB cap, image/video mime validation; build `AiImage[]` from `image/*` files only (skip
-      video), call `generateHtmlWithAi({ prompt, images, kind })`. Keep `{ html }` success / `{ error }`+status
-      failure. Drop the GEMINI_API_KEY branch; keep the DASHSCOPE_API_KEY "not configured" message (generic
-      wording: "AI generation is not configured. Set DASHSCOPE_API_KEY."). Generic error prefix "Failed to generate
-      the content: ...".
-      Files: create `src/app/api/generate-content/route.ts`; delete `src/app/api/generate-landing-page/route.ts`.
-      Verify: `npm run build` passes; `npm run lint` passes. Manually confirm no remaining import of `gemini`/
-      `deepseek`: `npm run build` will error if any dangling import remains.
+- [ ] 2. Thread `currentHtml` through `src/app/api/generate-content/route.ts`.
+      Read `const currentHtml = (formData.get('currentHtml') as string | null)?.trim() || undefined`. Pass it to `generateHtmlWithAi`. Keep the "prompt or files required" guard — but when `currentHtml` is present, a prompt alone (no files) is valid (already true since prompt satisfies the guard). Preserve auth/mime/size/video-skip/error handling untouched.
+      Files: src/app/api/generate-content/route.ts
+      Verify: `npm run build` succeeds. Runtime (needs verification during implementation): POST with `currentHtml` returns revised HTML; POST without it behaves as today.
 
-- [ ] 3. Remove the Gemini dependency. Drop `@google/genai` from `package.json` dependencies and run
-      `npm install` to update the lockfile. Grep the repo for `@google/genai`, `GEMINI_API_KEY`, `generateLandingPageHtml`,
-      `generateLandingPageHtmlDeepSeek` to confirm no references remain outside README/env docs.
-      Files: `package.json`, `package-lock.json`.
-      Verify: `npm run build` passes with the dependency removed.
+- [ ] 3. Create the shared `AiHtmlEditor` client component.
+      `src/components/ai-html-editor.tsx` ('use client'). Props: `{ kind: 'landing'|'email'; html: string; onHtmlChange: (v:string)=>void; textareaName: string; textareaRequired?: boolean }`. Renders: the Code/Preview `.editor-tabs` + `.studio-code` `<textarea name={textareaName}>` bound to `html` + `.studio-preview` `<iframe srcDoc={html} sandbox="" title="Preview" />` (copy the landing studio markup exactly). Plus an "Iterate with AI" panel using `.landing-ai` markup (reference images chips via `.ai-files`, prompt textarea, submit button `.ai-generate`, inline `.auth-message error`). On submit it builds FormData (`prompt`, `kind`, `files`, and `currentHtml=html` when `html` is non-empty/non-starter), POSTs `/api/generate-content`, and on success calls `onHtmlChange(data.html)` and switches to Preview. Button label: "Revising…" when html present, "Generating…" when empty; idle "Iterate with AI" / "Generate with AI" accordingly. Manage `tab`, `aiPrompt`, `aiFiles`, `aiLoading`, `aiError` internally.
+      Files: src/components/ai-html-editor.tsx
+      Verify: `npm run build` succeeds. Component compiles and is importable.
 
-## PART 1 + 3 — Landing-page studio: DeepSeek removal + UI polish
+- [ ] 4. Refactor the landing CREATE page to use `AiHtmlEditor`.
+      Replace the inline `.landing-editor` section AND the inline `.landing-ai` sub-panel in `src/app/dashboard/landing-pages/create/page.tsx` with `<AiHtmlEditor kind="landing" html={html} onHtmlChange={setHtml} textareaName="htmlContent" textareaRequired />`. Keep name/urlSlug fields, `.studio-safety` block, `createLandingPage` submit, `starterHtml`. Add the sessionStorage one-shot read on mount (key `phishsafe:create-handoff:landing`): if present, seed `html` from it, switch to preview, remove the key. Keep `sandbox=""`.
+      Files: src/app/dashboard/landing-pages/create/page.tsx
+      Verify: `npm run build` succeeds. Runtime: page renders, generate/iterate work, preview sandboxed, save unchanged.
 
-- [ ] 4. Rewrite `src/app/dashboard/landing-pages/create/page.tsx`: remove `provider` state and the model `<select>`;
-      stop sending `provider`; POST to `/api/generate-content` with `kind=landing`. Generic button label
-      "Generate with AI" (+"Generating…" disabled state), generic sub-panel copy ("Upload photos, describe the page,
-      and let AI draft the HTML"). File input `accept="image/*"` with a small note that videos aren't used. Keep all
-      functionality: name, urlSlug, `htmlContent` textarea (manual edit), setHtml + switch to preview tab on success,
-      inline `aiError` via `.auth-message.error`, removable file chips, `createLandingPage` save, sandbox="" iframe.
-      Reformat the minified JSX into readable multi-line JSX.
-      Files: `src/app/dashboard/landing-pages/create/page.tsx`.
-      Verify: `npm run build` + `npm run lint` pass; manually confirm no "Gemini"/"DeepSeek" strings remain in the file.
+- [ ] 5. Give the template CREATE page the live preview + iterate box via `AiHtmlEditor`.
+      In `src/app/dashboard/templates/create/page.tsx` replace the plain `bodyHtml` textarea AND the existing `.landing-ai` generate panel with `<AiHtmlEditor kind="email" html={bodyHtml} onHtmlChange={setBodyHtml} textareaName="bodyHtml" textareaRequired />`. Keep name/subject fields and `createTemplate` submit. Seed a sensible email starter (or empty) and add the sessionStorage one-shot read (key `phishsafe:create-handoff:template`). Wrap the form in the landing studio layout classes (`.landing-studio` / `.landing-settings` / editor) OR keep its current container but ensure the shared editor renders consistently — prefer matching the landing studio two-column layout for goal (4) consistency. Keep `{{link}}` helper text.
+      Files: src/app/dashboard/templates/create/page.tsx
+      Verify: `npm run build` succeeds. Runtime: Code/Preview tabs work, iframe `sandbox=""`, generate+iterate work, save unchanged.
 
-- [ ] 5. Polish studio styles in `src/app/globals.css` (the `/* Landing-page studio */` block, lines ~353–355, plus
-      the `@media (max-width:1050px)` rule ~line 400 and the `@media (max-width:760px)` stacking rule ~line 419).
-      Improve the settings-panel hierarchy/spacing; make `.landing-ai` a visually distinct inviting card; style
-      file chips (`.ai-files li`); ensure `.ai-generate:disabled` reads as loading; make `.editor-tabs` active state
-      obvious; bump the tiny font sizes to readable values. Keep the semantic class approach (.landing-*, .studio-*,
-      .field, .button) — no Tailwind utilities. Keep both responsive breakpoints working (columns stack at 760px).
-      Files: `src/app/globals.css`.
-      Verify: `npm run build` passes; manually confirm the 760px rule still sets `.landing-studio` to one column.
+- [ ] 6. Give the template EDIT form the live preview + iterate box via `AiHtmlEditor`.
+      In `src/app/dashboard/templates/[id]/edit/EditTemplateForm.tsx` replace the plain `bodyHtml` textarea + `.landing-ai` panel with `<AiHtmlEditor kind="email" html={bodyHtml} onHtmlChange={setBodyHtml} textareaName="bodyHtml" textareaRequired />`. Keep the hidden `id`, name/subject defaults, `updateTemplate` action, `SubmitButton`. Since existing body_html is present, iterate requests will send `currentHtml` (revision). Keep `{{link}}` helper text.
+      Files: src/app/dashboard/templates/[id]/edit/EditTemplateForm.tsx
+      Verify: `npm run build` succeeds. Runtime: editing an existing template, iterate revises in place and preview updates.
 
-## PART 2 — Generic wording in docs
+- [ ] 7. Build the create-mode popup component (Option 2, no draft).
+      `src/components/create-resource-dialog.tsx` ('use client'). Props: `{ kind: 'landing'|'template'; createHref: string; label: string }`. Renders a trigger button; opens a modal (backdrop + panel, close button, Escape-to-close, backdrop-click close, focus the panel on open). Two choices: "Create blank" → `router.push(createHref)` (no sessionStorage key). "Create with AI" → EXPANDS the panel in place to reveal image upload (`.ai-files` chips) + prompt textarea + Generate button; on submit POST `/api/generate-content` (from scratch, `kind` mapped: landing→landing, template→email), on success write `{ html }` to `sessionStorage` under `phishsafe:create-handoff:<kind-or-email>` matching the key the create pages read, then `router.push(createHref)`. Show loading + inline `.auth-message error`. Style with existing semantic classes + new modal classes (step 9).
+      Files: src/components/create-resource-dialog.tsx
+      Verify: `npm run build` succeeds. Runtime: modal opens/closes, both paths navigate correctly, generated HTML lands in the create editor unsaved.
 
-- [ ] 6. Update `README.md`: in Features, change the "AI Landing-page Generator" bullet to generic AI wording (no
-      "Gemini"); describe the provider as "the AI provider (Alibaba Cloud Model Studio)". In env docs, remove the
-      `GEMINI_API_KEY` line, keep `DASHSCOPE_API_KEY`/`DASHSCOPE_BASE_URL`/`DEEPSEEK_MODEL` documented accurately,
-      remove the two-provider dropdown note, add that the email-template builder also offers AI generation. Do NOT
-      touch `.env`.
-      Files: `README.md`.
-      Verify: `rg -n "Gemini|GEMINI_API_KEY" README.md` returns nothing.
+- [ ] 8. Wire the popup into the two list pages without regressing audiences.
+      `ResourceLibrary` is shared (audiences/templates/pages) and server-rendered with a plain create `<Link>`. Add an optional `createSlot?: React.ReactNode` prop to `src/components/resource-library.tsx`; when provided, render it in place of the header create `<Link>` (and ideally the empty-state CTA). In `src/app/dashboard/templates/page.tsx` and `src/app/dashboard/landing-pages/page.tsx`, pass `createSlot={<CreateResourceDialog .../>}`. Audience page keeps the plain link (no slot). Keep `createHref`/`createLabel` as the fallback.
+      Files: src/components/resource-library.tsx, src/app/dashboard/templates/page.tsx, src/app/dashboard/landing-pages/page.tsx
+      Verify: `npm run build` succeeds. Runtime: templates + landing-pages lists show the popup trigger; audiences list unchanged.
 
-## PART 4 — AI generation in the email Templates builder
+- [ ] 9. Add modal + any new editor CSS to globals.css (semantic classes, dark-mode).
+      Add `.create-modal-backdrop`, `.create-modal`, `.create-modal-choices`, `.create-modal-expand` (or similar) reusing tokens (`--surface`, `--line`, `--ink`, `--subtle`) so dark mode works via existing `.dark { --surface... }`. Add a `.dark` rule only if a hardcoded color needs it. If the template create page adopts the two-column `.landing-studio` layout, verify no new classes are needed (reuse existing). Do NOT convert anything to Tailwind utilities. Keep responsive behavior at the 1050px/760px breakpoints consistent.
+      Files: src/app/globals.css
+      Verify: `npm run build` succeeds. Runtime: modal readable in light + dark; editor looks consistent across all three surfaces.
 
-- [ ] 7. Add AI generation to the template CREATE page. Convert
-      `src/app/dashboard/templates/create/page.tsx` to add an AI generator sub-panel (prompt textarea + optional
-      `image/*` reference upload + "Generate with AI" button with loading/disabled + inline `.auth-message.error`).
-      Keep the existing field names `name`, `subject`, `bodyHtml` and make `bodyHtml` a controlled textarea so
-      generated HTML drops into its state and stays editable. On generate, POST to `/api/generate-content` with
-      `kind=email`; set the returned HTML into the bodyHtml state (do NOT auto-save). Keep the existing
-      `{{link}}` helper note and `createTemplate` submit flow unchanged. Reuse existing CSS classes (the page uses
-      Tailwind utilities today; the AI sub-panel may reuse `.landing-ai`/`.ai-*`/`.button` classes for consistency).
-      Files: `src/app/dashboard/templates/create/page.tsx`.
-      Verify: `npm run build` + `npm run lint` pass; manual: generated email contains `{{link}}` (enforced by the
-      email system instruction in item 1).
-
-- [ ] 8. (Priority-second, same pattern) Add the same AI generator to the template EDIT page. This requires
-      converting `src/app/dashboard/templates/[id]/edit/page.tsx` from a server component (`action={updateTemplate}`)
-      to a client component that fetches the template (or receives it from a small server wrapper) and manages
-      `bodyHtml` state, so the generated/edited HTML is a controlled textarea. Keep the hidden `id`, `updateTemplate`
-      submit, and the `{{link}}` note. If the server→client conversion is risky, keep edit as-is and ship create only
-      (create is the stated priority) — document the choice in the FEAT findings.
-      Files: `src/app/dashboard/templates/[id]/edit/page.tsx` (+ optionally a thin server wrapper for data fetching).
-      Verify: `npm run build` + `npm run lint` pass.
-
-## Cross-cutting final verification
-- [ ] 9. Full build + lint gate and dangling-reference sweep.
-      Verify: `npm run build` passes, `npm run lint` passes, and
-      `rg -n "gemini|deepseek|provider.*select|Generate with (Gemini|DeepSeek)" src` returns no user-facing hits
-      (internal implementation comments in `src/lib/ai.ts` referencing DeepSeek/DashScope are acceptable).
+- [ ] 10. Full verification pass.
+      Files: (none — verification only)
+      Verify: `npm run lint` and `npm run build` both pass clean. Manual runtime checks (needs verification during implementation): (a) landing create — blank + create-with-AI + iterate + preview `sandbox=""` + save; (b) template create — same; (c) template edit — iterate revises existing body, `{{link}}` preserved in email output; (d) popup accessible (Esc/backdrop/close, focus); (e) safety copy + sandbox intact; (f) generating without a key configured still returns the friendly error. Remove any temp files.
