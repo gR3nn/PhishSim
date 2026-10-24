@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Code2, Eye, Sparkles, X } from 'lucide-react'
 
 type AiHtmlEditorProps = {
@@ -11,6 +11,8 @@ type AiHtmlEditorProps = {
     textareaRequired?: boolean
     starterHtml?: string
     initialTab?: 'code' | 'preview'
+    /** Content rendered at the top of the left settings column (details fields, actions, etc.). */
+    settings: ReactNode
 }
 
 export default function AiHtmlEditor({
@@ -21,6 +23,7 @@ export default function AiHtmlEditor({
     textareaRequired = false,
     starterHtml,
     initialTab = 'code',
+    settings,
 }: AiHtmlEditorProps) {
     const [tab, setTab] = useState<'code' | 'preview'>(initialTab)
     const [aiPrompt, setAiPrompt] = useState('')
@@ -74,79 +77,83 @@ export default function AiHtmlEditor({
 
     return (
         <>
-            <div className="landing-ai">
-                <div className="landing-ai-title">
-                    <span>
-                        <Sparkles size={15} />
-                    </span>
-                    <div>
-                        <h3>Iterate with AI</h3>
-                        <p>
-                            Upload reference photos, describe what you want, and let AI draft or revise the HTML.
-                            {kind === 'email' && (
-                                <>
-                                    {' '}
-                                    The tracking link <code>{`{{link}}`}</code> is kept automatically.
-                                </>
-                            )}
-                        </p>
+            <section className="landing-settings">
+                {settings}
+
+                <div className="landing-ai">
+                    <div className="landing-ai-title">
+                        <span>
+                            <Sparkles size={15} />
+                        </span>
+                        <div>
+                            <h3>Iterate with AI</h3>
+                            <p>
+                                Upload reference photos, describe what you want, and let AI draft or revise the HTML.
+                                {kind === 'email' && (
+                                    <>
+                                        {' '}
+                                        The tracking link <code>{`{{link}}`}</code> is kept automatically.
+                                    </>
+                                )}
+                            </p>
+                        </div>
                     </div>
+
+                    <div className="field">
+                        <label htmlFor="aiFiles">Reference media</label>
+                        <input
+                            id="aiFiles"
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(event) => {
+                                addFiles(event.target.files)
+                                event.target.value = ''
+                            }}
+                        />
+                        <small>Images only — videos are not used by the AI. Describe any motion in the comment instead.</small>
+                    </div>
+
+                    {aiFiles.length > 0 && (
+                        <ul className="ai-files">
+                            {aiFiles.map((file, index) => (
+                                <li key={`${file.name}-${index}`}>
+                                    <span>{file.name}</span>
+                                    <button type="button" onClick={() => removeFile(index)} aria-label={`Remove ${file.name}`}>
+                                        <X size={12} />
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
+                    <div className="field">
+                        <label htmlFor="aiPrompt">Comment / prompt</label>
+                        <textarea
+                            id="aiPrompt"
+                            value={aiPrompt}
+                            onChange={(event) => setAiPrompt(event.target.value)}
+                            placeholder={
+                                kind === 'email'
+                                    ? 'e.g. A password-reset notice from IT with a single call-to-action button.'
+                                    : 'e.g. A friendly payroll update notice with our logo colours.'
+                            }
+                        />
+                    </div>
+
+                    {aiError && <div className="auth-message error">{aiError}</div>}
+
+                    <button
+                        type="button"
+                        className="button secondary ai-generate"
+                        onClick={handleGenerate}
+                        disabled={aiLoading}
+                    >
+                        <Sparkles size={14} />
+                        {generateLabel}
+                    </button>
                 </div>
-
-                <div className="field">
-                    <label htmlFor="aiFiles">Reference media</label>
-                    <input
-                        id="aiFiles"
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(event) => {
-                            addFiles(event.target.files)
-                            event.target.value = ''
-                        }}
-                    />
-                    <small>Images only — videos are not used by the AI. Describe any motion in the comment instead.</small>
-                </div>
-
-                {aiFiles.length > 0 && (
-                    <ul className="ai-files">
-                        {aiFiles.map((file, index) => (
-                            <li key={`${file.name}-${index}`}>
-                                <span>{file.name}</span>
-                                <button type="button" onClick={() => removeFile(index)} aria-label={`Remove ${file.name}`}>
-                                    <X size={12} />
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-
-                <div className="field">
-                    <label htmlFor="aiPrompt">Comment / prompt</label>
-                    <textarea
-                        id="aiPrompt"
-                        value={aiPrompt}
-                        onChange={(event) => setAiPrompt(event.target.value)}
-                        placeholder={
-                            kind === 'email'
-                                ? 'e.g. A password-reset notice from IT with a single call-to-action button.'
-                                : 'e.g. A friendly payroll update notice with our logo colours.'
-                        }
-                    />
-                </div>
-
-                {aiError && <div className="auth-message error">{aiError}</div>}
-
-                <button
-                    type="button"
-                    className="button secondary ai-generate"
-                    onClick={handleGenerate}
-                    disabled={aiLoading}
-                >
-                    <Sparkles size={14} />
-                    {generateLabel}
-                </button>
-            </div>
+            </section>
 
             <section className="landing-editor">
                 <div className="editor-tabs">

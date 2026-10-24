@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Plus, Sparkles, X, FileText } from 'lucide-react'
 
@@ -17,6 +18,7 @@ const handoffKeys = {
 
 export default function CreateResourceDialog({ kind, createHref, label }: CreateResourceDialogProps) {
     const router = useRouter()
+    const [mounted, setMounted] = useState(false)
     const [open, setOpen] = useState(false)
     const [mode, setMode] = useState<'choose' | 'ai'>('choose')
     const [aiPrompt, setAiPrompt] = useState('')
@@ -37,6 +39,20 @@ export default function CreateResourceDialog({ kind, createHref, label }: Create
         setAiError('')
         setAiLoading(false)
     }
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    // Lock background scroll while the modal is open.
+    useEffect(() => {
+        if (!open) return
+        const previous = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        return () => {
+            document.body.style.overflow = previous
+        }
+    }, [open])
 
     useEffect(() => {
         if (!open) return
@@ -92,7 +108,7 @@ export default function CreateResourceDialog({ kind, createHref, label }: Create
                 {label}
             </button>
 
-            {open && (
+            {open && mounted && createPortal(
                 <div className="create-modal-backdrop" role="button" tabIndex={-1} aria-label="Close dialog" onClick={closeDialog}>
                     <div
                         ref={panelRef}
@@ -192,7 +208,8 @@ export default function CreateResourceDialog({ kind, createHref, label }: Create
                             </div>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </>
     )

@@ -73,48 +73,6 @@ export default function CreateTemplatePage() {
             </section>
 
             <form onSubmit={handleSubmit} className="landing-studio">
-                <section className="landing-settings">
-                    <div className="settings-title">
-                        <span>
-                            <FileCode2 size={19} />
-                        </span>
-                        <div>
-                            <h2>Template details</h2>
-                            <p>Name and subject line for your email.</p>
-                        </div>
-                    </div>
-
-                    <div className="field">
-                        <label htmlFor="name">Template name</label>
-                        <input id="name" name="name" required placeholder="e.g. Microsoft Password Reset" />
-                    </div>
-
-                    <div className="field">
-                        <label htmlFor="subject">Email subject</label>
-                        <input id="subject" name="subject" required placeholder="Action Required: Reset your password" />
-                    </div>
-
-                    <div className="studio-safety">
-                        <strong>Tracking link</strong>
-                        <p>
-                            Use <code>{`{{link}}`}</code> in the body to insert the phishing link. It is required for the
-                            simulation to work.
-                        </p>
-                    </div>
-
-                    {error && <div className="auth-message error">{error}</div>}
-
-                    <div className="studio-actions">
-                        <Link href="/dashboard/templates" className="button secondary">
-                            Cancel
-                        </Link>
-                        <button type="submit" className="button primary" disabled={loading}>
-                            <Save size={15} />
-                            {loading ? 'Creating…' : 'Create template'}
-                        </button>
-                    </div>
-                </section>
-
                 <AiHtmlEditor
                     kind="email"
                     html={bodyHtml}
@@ -123,6 +81,49 @@ export default function CreateTemplatePage() {
                     textareaRequired
                     starterHtml={emailStarterHtml}
                     initialTab={initialTab}
+                    settings={
+                        <>
+                            <div className="settings-title">
+                                <span>
+                                    <FileCode2 size={19} />
+                                </span>
+                                <div>
+                                    <h2>Template details</h2>
+                                    <p>Name and subject line for your email.</p>
+                                </div>
+                            </div>
+
+                            <div className="field">
+                                <label htmlFor="name">Template name</label>
+                                <input id="name" name="name" required placeholder="e.g. Microsoft Password Reset" />
+                            </div>
+
+                            <div className="field">
+                                <label htmlFor="subject">Email subject</label>
+                                <input id="subject" name="subject" required placeholder="Action Required: Reset your password" />
+                            </div>
+
+                            <div className="studio-safety">
+                                <strong>Tracking link</strong>
+                                <p>
+                                    Use <code>{`{{link}}`}</code> in the body to insert the phishing link. It is required for the
+                                    simulation to work.
+                                </p>
+                            </div>
+
+                            {error && <div className="auth-message error">{error}</div>}
+
+                            <div className="studio-actions">
+                                <Link href="/dashboard/templates" className="button secondary">
+                                    Cancel
+                                </Link>
+                                <button type="submit" className="button primary" disabled={loading}>
+                                    <Save size={15} />
+                                    {loading ? 'Creating…' : 'Create template'}
+                                </button>
+                            </div>
+                        </>
+                    }
                 />
             </form>
         </div>

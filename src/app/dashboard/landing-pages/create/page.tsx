@@ -62,55 +62,6 @@ export default function CreateLandingPage() {
       </section>
 
       <form onSubmit={handleSubmit} className="landing-studio">
-        <section className="landing-settings">
-          <div className="settings-title">
-            <span>
-              <FileCode2 size={19} />
-            </span>
-            <div>
-              <h2>Page details</h2>
-              <p>Name and address for your page.</p>
-            </div>
-          </div>
-
-          <div className="field">
-            <label htmlFor="name">Page name</label>
-            <input id="name" name="name" required placeholder="e.g. Finance awareness page" />
-          </div>
-
-          <div className="field">
-            <label htmlFor="urlSlug">URL slug</label>
-            <div className="slug-input">
-              <span>/l/</span>
-              <input
-                id="urlSlug"
-                name="urlSlug"
-                required
-                pattern="[a-zA-Z0-9-]+"
-                placeholder="finance-awareness"
-              />
-            </div>
-            <small>Letters, numbers and hyphens only.</small>
-          </div>
-
-          <div className="studio-safety">
-            <strong>Privacy by design</strong>
-            <p>Use this page to teach. Do not request or store real credentials.</p>
-          </div>
-
-          {error && <div className="auth-message error">{error}</div>}
-
-          <div className="studio-actions">
-            <Link href="/dashboard/landing-pages" className="button secondary">
-              Cancel
-            </Link>
-            <button className="button primary" disabled={loading}>
-              <Save size={15} />
-              {loading ? 'Saving…' : 'Save page'}
-            </button>
-          </div>
-        </section>
-
         <AiHtmlEditor
           kind="landing"
           html={html}
@@ -119,6 +70,56 @@ export default function CreateLandingPage() {
           textareaRequired
           starterHtml={starterHtml}
           initialTab={initialTab}
+          settings={
+            <>
+              <div className="settings-title">
+                <span>
+                  <FileCode2 size={19} />
+                </span>
+                <div>
+                  <h2>Page details</h2>
+                  <p>Name and address for your page.</p>
+                </div>
+              </div>
+
+              <div className="field">
+                <label htmlFor="name">Page name</label>
+                <input id="name" name="name" required placeholder="e.g. Finance awareness page" />
+              </div>
+
+              <div className="field">
+                <label htmlFor="urlSlug">URL slug</label>
+                <div className="slug-input">
+                  <span>/l/</span>
+                  <input
+                    id="urlSlug"
+                    name="urlSlug"
+                    required
+                    pattern="[a-zA-Z0-9-]+"
+                    placeholder="finance-awareness"
+                  />
+                </div>
+                <small>Letters, numbers and hyphens only.</small>
+              </div>
+
+              <div className="studio-safety">
+                <strong>Privacy by design</strong>
+                <p>Use this page to teach. Do not request or store real credentials.</p>
+              </div>
+
+              {error && <div className="auth-message error">{error}</div>}
+
+              <div className="studio-actions">
+                <Link href="/dashboard/landing-pages" className="button secondary">
+                  Cancel
+                </Link>
+                <button className="button primary" disabled={loading}>
+                  <Save size={15} />
+                  {loading ? 'Saving…' : 'Save page'}
+                </button>
+              </div>
+            </>
+          }
         />
       </form>
     </div>
