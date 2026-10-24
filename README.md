@@ -11,7 +11,8 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
 -   **Email Templates**: Customizable HTML email templates with dynamic tracking links.
 -   **Audience Builder**: Write or paste validated recipients using `email@example.com, Name;` format.
 -   **Starter Libraries**: Seed 12 email templates and 12 educational landing pages for every current account.
--   **AI Landing-page Generator**: Upload reference photos/videos and a comment, and Google Gemini drafts a self-contained HTML page into the editor for review before you save it (nothing is auto-saved).
+-   **AI Landing-page Generator**: Upload reference photos and a comment, and the AI provider (Alibaba Cloud Model Studio) drafts a self-contained HTML page into the editor for review before you save it (nothing is auto-saved).
+-   **AI Email Templates**: The email-template builder can also draft HTML email bodies with AI, which you can edit in the UI before saving.
 -   **Real-time Tracking**: Track email opens, link clicks, and compromised credentials (simulated).
 -   **Interactive Dashboard**: View campaign statistics and detailed event logs in real-time.
 -   **Fake Login Pages**: Realistic login pages to capture "compromised" events (credentials are NOT stored).
@@ -68,11 +69,22 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
     # Stripe test-mode secret key
     STRIPE_SECRET_KEY=sk_test_...
 
-    # Google Gemini API key (required for AI landing-page generation)
-    GEMINI_API_KEY=
+    # AI provider — Alibaba Cloud Model Studio (powers landing-page and email-template generation)
+    DASHSCOPE_API_KEY=
+    # Required for Token Plans: copy the "Plan Exclusive Base URL" from the Model Studio console.
+    # Defaults to the international endpoint https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+    DASHSCOPE_BASE_URL=
+    # A model with Visual Understanding (defaults to deepseek-v4.1-flash)
+    DEEPSEEK_MODEL=deepseek-v4.1-flash
     ```
 
-    > The AI landing-page generator requires `GEMINI_API_KEY` to be set in `.env.local`/`.env`. Without it, the Generate button returns a friendly "not configured" error and the rest of the app works normally.
+    > The AI generators (landing pages and email templates) are powered by the AI provider (Alibaba Cloud Model Studio):
+    >
+    > -   Set `DASHSCOPE_API_KEY` to enable AI generation. Reference images are read by the model; videos are not used.
+    > -   For a Token Plan, also set `DASHSCOPE_BASE_URL` to the plan-exclusive base URL from the console, or the key returns a 401.
+    > -   `DEEPSEEK_MODEL` selects the model (defaults to `deepseek-v4.1-flash`).
+    >
+    > The AI provider is optional. If the key is missing, the Generate action returns a friendly "not configured" error and the rest of the app works normally.
 
 4.  **Database Setup:**
     For a new database, run `supabase/schema.sql`, then run `supabase/migrations/20261021_roles_approvals_billing.sql` in the Supabase SQL editor. Existing projects only need the migration.
