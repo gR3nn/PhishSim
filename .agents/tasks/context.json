@@ -1,0 +1,29 @@
+{
+  "project_type": "Next.js 16 App Router web app (TypeScript) — PhishSafe, an authorized security-awareness / phishing-simulation training platform. Supabase (PostgreSQL + Auth), Tailwind v4 plus a large semantic-class globals.css, lucide-react icons.",
+  "language": "TypeScript / TSX (React 19.2.1)",
+  "build_system": "npm. Next.js 16.0.10 build via `next build`. No bundler quirks beyond standard Next App Router. Tailwind v4 via @tailwindcss/postcss, but the app relies heavily on semantic CSS classes in src/app/globals.css (one large file) rather than utilities in most pages.",
+  "test_framework": "NONE — there is no test framework in this repo. Do NOT add one.",
+  "build_command": "npm run build",
+  "test_command": "npm run lint   (eslint; there are no unit tests — build + lint is the verification gate)",
+  "verification_instructions": "After each feature run `npm run build` (Next production build = the real type-check/compile gate) and `npm run lint`. There are no automated tests; a feature is verified when build and lint both pass AND a grep/manual check confirms the feature-specific invariant (e.g. no 'Gemini'/'DeepSeek' user-facing strings remain, generated email HTML instruction requires the {{link}} token). Do not start/kill any long-running dev server.",
+  "snapshot_or_generated_files": "package-lock.json is updated by `npm install` when @google/genai is removed — commit it. No other generated/checked-in artifacts.",
+  "environment_constraints": "Never read or modify the .env file (real secrets, git-ignored). Keep env var NAMES exactly: DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL, DEEPSEEK_MODEL. Do not modify scripts/seed-default-content.mjs (it holds the canonical safety-framed seed content). Do not add a test framework.",
+  "contribution_requirements": "No AGENTS.md/CONTRIBUTING.md present. Follow existing code style: route handlers use `const supabase = await createClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return 401`. Client pages use 'use client' + useState. Keep safety posture: do NOT weaken 'SECURITY AWARENESS TRAINING SIMULATION' markers, 'credentials are NOT stored' guarantees, or the sandbox=\"\" preview iframe.",
+  "key_patterns": "Supabase helper @/lib/supabase/server exports async createClient(). AI lib request shape (MUST preserve): OpenAI-compatible POST to `${baseUrl}/chat/completions` with { model, messages:[{role:system,content:string},{role:user,content:[{type:text,text},{type:image_url,image_url:{url:dataUrl}}]}] }, Authorization: Bearer DASHSCOPE_API_KEY; default base URL https://dashscope-intl.aliyuncs.com/compatible-mode/v1, default model deepseek-v4.1-flash. Markdown code fences are stripped from the model output. Email templates use the literal {{link}} placeholder; campaigns/actions.ts replaces /{{link}}/g with the tracking URL — generated emails MUST include {{link}} or the campaign breaks. Template form fields: name, subject, bodyHtml (DB column body_html). Landing form fields: name, urlSlug, htmlContent.",
+  "relevant_files": [
+    "src/lib/deepseek.ts  (KEEP impl, move into src/lib/ai.ts; exports generateLandingPageHtmlDeepSeek + DeepSeekImage today)",
+    "src/lib/gemini.ts  (DELETE)",
+    "src/app/api/generate-landing-page/route.ts  (rename folder to generate-content; remove provider branch + Gemini path)",
+    "src/app/dashboard/landing-pages/create/page.tsx  (remove provider select/state; generic 'Generate with AI'; reformat minified JSX; polish)",
+    "src/app/dashboard/landing-pages/actions.ts  (createLandingPage — save flow, DO NOT change)",
+    "src/app/dashboard/templates/create/page.tsx  (add AI generator; fields name/subject/bodyHtml)",
+    "src/app/dashboard/templates/[id]/edit/page.tsx  (server component using action={updateTemplate}; adding AI needs client conversion)",
+    "src/app/dashboard/templates/actions.ts  (createTemplate/updateTemplate — save flows, DO NOT change)",
+    "src/app/dashboard/campaigns/actions.ts  (consumes {{link}} via /{{link}}/g replace — read-only reference)",
+    "scripts/seed-default-content.mjs  (canonical {{link}} usage + safety framing — read-only reference, DO NOT edit)",
+    "src/app/globals.css  (semantic classes: .landing-studio/.landing-settings/.landing-editor/.landing-ai/.studio-code/.studio-preview/.ai-files/.ai-generate/.studio-safety/.studio-actions/.editor-tabs/.slug-input/.field/.button; @media max-width:1050px line ~400 narrows settings column; @media max-width:760px line ~419 stacks studio to one column; .dark overrides)",
+    "README.md  (Features list + env docs — make wording generic, keep env var names)",
+    "package.json  (remove @google/genai dependency)"
+  ],
+  "directory_structure": "src/app/dashboard/{landing-pages,templates,campaigns}/ hold feature pages + co-located actions.ts (Next server actions). src/app/api/ holds route handlers. src/lib/ holds supabase/ helpers and the AI client(s). src/app/globals.css is the single global stylesheet. scripts/ holds the seed script. supabase/ holds schema + migrations."
+}

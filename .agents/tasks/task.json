@@ -1,0 +1,7 @@
+{
+  "task_id": "task-deepseek-only-ai-and-template-generation",
+  "task_description": "Remove Gemini so DeepSeek (via Alibaba Cloud Model Studio) is the only AI provider behind a provider-neutral lib and a generalized /api/generate-content route; make all user-facing wording generic (Generate with AI); polish the landing-page create studio UI; add AI generation to the email Templates builder that injects email-safe HTML containing the {{link}} tracking placeholder. Preserve all safety/awareness framing, sandboxed preview iframe, env file and env var names, and existing save flows (no auto-save).",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}
