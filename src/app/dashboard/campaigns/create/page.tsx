@@ -2,9 +2,33 @@ import { createClient } from '@/lib/supabase/server'
 import { launchCampaign } from '../actions'
 import Link from 'next/link'
 import { SubmitButton } from '@/components/submit-button'
+import { getEntitlement } from '@/lib/entitlements'
 
 export default async function CreateCampaignPage() {
     const supabase = await createClient()
+
+    const { data: { user } } = await supabase.auth.getUser()
+    const entitlement = user ? await getEntitlement(user.id) : null
+
+    if (!entitlement?.canCreate) {
+        return (
+            <div className="content-page">
+                <section className="page-heading"><div><p className="eyebrow">Campaign builder</p><h1>Request a new simulation</h1></div></section>
+                <div className="panel empty-state">
+                    <p className="eyebrow">No campaigns available</p>
+                    <h2>Purchase a plan to create campaigns</h2>
+                    <p>You&apos;ve used all campaigns included in your plan this month, or you don&apos;t have an active plan yet.</p>
+                    <Link href="/dashboard/services" className="button primary">View plans</Link>
+                </div>
+            </div>
+        )
+    }
+
+    const remainingNote = Number.isFinite(entitlement.remainingMonthly) && entitlement.remainingMonthly > 0
+        ? `${entitlement.remainingMonthly} campaign${entitlement.remainingMonthly === 1 ? '' : 's'} remaining this month`
+        : entitlement.oneTimeCredits > 0
+            ? `${entitlement.oneTimeCredits} one-time credit${entitlement.oneTimeCredits === 1 ? '' : 's'} available`
+            : 'Unlimited campaigns this month'
 
     // Fetch Templates
     const { data: templates } = await supabase
@@ -34,7 +58,7 @@ export default async function CreateCampaignPage() {
 
     return (
         <div className="content-page">
-            <section className="page-heading"><div><p className="eyebrow">Campaign builder</p><h1>Request a new simulation</h1><p>Prepare the training scenario and submit it. An administrator will review the audience and content before any email is delivered.</p></div></section>
+            <section className="page-heading"><div><p className="eyebrow">Campaign builder</p><h1>Request a new simulation</h1><p>Prepare the training scenario and submit it. An administrator will review the audience and content before any email is delivered.</p><small>{remainingNote}</small></div></section>
             <div className="request-layout">
             <form action={launchCampaign} className="form-card">
                 <section className="form-section"><h2>Campaign details</h2><p>Give this simulation a clear internal name.</p><div className="form-grid"><div className="field full">

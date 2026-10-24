@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { sendEmail } from '@/lib/email'
 import { isAdmin } from '@/lib/authz'
+import { consumeAllowance, getEntitlement } from '@/lib/entitlements'
 
 export async function launchCampaign(formData: FormData) {
     const title = formData.get('title') as string
@@ -20,6 +21,11 @@ export async function launchCampaign(formData: FormData) {
 
     if (!user) {
         throw new Error('Unauthorized')
+    }
+
+    const entitlement = await getEntitlement(user.id)
+    if (!entitlement.canCreate) {
+        throw new Error("You've used all campaigns included in your plan this month. Upgrade or buy a single campaign to continue.")
     }
 
     // Campaign requests are reviewed by an administrator before any email is sent.
@@ -41,6 +47,8 @@ export async function launchCampaign(formData: FormData) {
         console.error('Error creating campaign:', campaignError)
         throw new Error('Failed to create campaign')
     }
+
+    await consumeAllowance(user.id)
 
     redirect(`/dashboard/campaigns/${campaign.id}`)
 }

@@ -14,6 +14,7 @@ export default async function UsersPage() {
   if (!user || !isAdmin(user.email, currentProfile?.role)) redirect('/dashboard')
 
   const admin = createAdminClient()
+  if (!admin) redirect('/dashboard')
   const [{ data: authData }, { data: profiles }] = await Promise.all([
     admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     admin.from('profiles').select('id,email,full_name,role,created_at'),
