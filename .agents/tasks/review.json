@@ -1,5 +1,31 @@
 {
   "verdict": "APPROVED",
-  "summary": "All four goals are met and the MUST-NOT-CHANGE set is intact; npm run lint and npm run build both pass clean. The shared AiHtmlEditor gives both template builders a sandboxed live preview and iterate-with-AI, the no-draft create popup hands off AI HTML via sessionStorage with no DB write or [id]/edit redirect, and the DashScope request shape in ai.ts is additive-only (currentHtml).",
-  "findings": []
+  "findings": [
+    {
+      "severity": "info",
+      "detail": "FEAT-001 verified: new additive migration supabase/migrations/20261101_orders_entitlements.sql widens the orders_plan_check to include 'single' and adds billing_type/period_start/credit_consumed with backfill and a (user_id,status) index; it does not edit the existing 20261021 migration or schema.sql, and carries the 'run in Supabase SQL editor' comment.",
+      "file": "supabase/migrations/20261101_orders_entitlements.sql"
+    },
+    {
+      "severity": "info",
+      "detail": "Server-side purchase verification is correct and fail-closed: success page fetches the Stripe session, requires payment_status==='paid'||status==='complete' AND metadata.user_id===current user, and UPSERTs via the service-role client with onConflict 'stripe_session_id' (idempotent on refresh). Every failure path (missing STRIPE_SECRET_KEY, missing admin client, unpaid, user mismatch, fetch/parse error) returns without granting and renders a graceful summary. Does not crash without session_id.",
+      "file": "src/app/dashboard/services/success/page.tsx"
+    },
+    {
+      "severity": "info",
+      "detail": "Allowance enforced in launchCampaign: getEntitlement(user.id) runs after auth and before the campaigns insert; !canCreate throws the exact required message and inserts nothing; consumeAllowance runs only after a successful insert and before redirect. getEntitlement/consumeAllowance degrade to a NO_PLAN (canCreate:false) result when the service-role client is unavailable, so behavior is fail-closed rather than crashing. admin.ts now returns null when URL/service-role key are missing, and both existing callers (users/actions.ts, users/page.tsx) guard the null.",
+      "file": "src/app/dashboard/campaigns/actions.ts"
+    },
+    {
+      "severity": "info",
+      "detail": "FEAT-002 is display-only: all renames change visible text only. No href, resource-library kind= prop (audience/template preserved) or object keys, server-action name, form field name (title/templateId/groupId/landingPageUrl), DB column, or {{link}} token was changed. Checkout route request shape (metadata[user_id]/metadata[plan]) is untouched. Removed-string grep is clean; the two residual hits are the documented expected exceptions (a CSS comment and the intentional new 'Plans & billing' h1).",
+      "file": "src/components/dashboard-shell.tsx"
+    },
+    {
+      "severity": "info",
+      "detail": "FEAT-003 topbar redesign preserves all behavior: mobile-menu toggle, notifications dropdown, ThemeToggle, role-pill, and greeting all remain wired (only markup change is adding className='topbar-heading' to the existing title wrapper). Styling stays semantic-class CSS (no Tailwind conversion), both light and .dark topbar/role-pill/icon variants defined, and the 760px (hides kicker/role-pill, shows mobile-menu) and 540px (shrinks title) media rules still target topbar elements. No edits to landing/template studio structure or iframe sandbox attributes.",
+      "file": "src/app/globals.css"
+    }
+  ],
+  "summary": "All three features satisfy the task. FEAT-001: Stripe payments are verified server-side, orders are idempotently UPSERTed via the service-role client, the new additive migration exists (no existing migration edited), and per-plan allowance is enforced in launchCampaign (fail-closed when service role is absent) with consumption after a successful insert. FEAT-002: terminology changes are display-only with no route/action/form-field/prop/key/{{link}} changes and the checkout shape intact. FEAT-003: topbar redesign preserves every handler/element, keeps semantic-class CSS with light+dark+responsive coverage, and leaves builder/studio iframes untouched. npm run lint exits 0 and npm run build succeeds."
 }

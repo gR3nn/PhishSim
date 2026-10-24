@@ -1,72 +1,128 @@
-# Implementation Plan — PhishSafe AI builder UX overhaul
+# Implementation Plan — PhishSafe: Real Purchases, Terminology, Visual Polish
 
-Next.js 16 App Router + TypeScript + Supabase + Tailwind v4. Package manager: npm. No test framework — do NOT add one. Verification is `npm run build` (+ `npm run lint`) and documented manual runtime checks.
+This plan covers three goals against the real codebase (Next.js 16 App Router, TypeScript, Supabase/Postgres, Tailwind v4, semantic-class CSS in `src/app/globals.css`). No test framework exists; **verification = `npm run lint` and `npm run build` must both pass** (lint currently exits 0, build must stay green). Clean up any scratch files.
 
-## Scope decisions (made during exploration, grounded in code)
+## Facts established by reading the code
 
-- **Landing-edit resolution:** `src/app/dashboard/landing-pages/` has ONLY `create/page.tsx`, `page.tsx`, `actions.ts`. There is NO `[id]`/edit route and NO `updateLandingPage` in `actions.ts` (verified). Therefore: do NOT build a landing-page edit CRUD. The landing CREATE page is the full editor (it already has the live preview + AI panel). The "iterate with AI" box is added to the landing CREATE page and to BOTH template surfaces (create + edit). A landing edit page is explicitly OUT OF SCOPE; note it as a future enhancement.
-- **Create-with-AI handoff (Option 2, no draft DB record):** use **`sessionStorage`**. The list-page popup generates HTML (POST `/api/generate-content`, from scratch), stores `{ html }` under a well-known key (`phishsafe:create-handoff:landing` / `phishsafe:create-handoff:template`), then `router.push` to the create page. The create page, on mount, reads+removes that key (one-shot) and seeds editor state. This avoids large HTML in the URL and persists nothing to the DB until Save. Blank path just navigates with no key set. Rationale: survives the client-side navigation, no server round-trip, no draft record, cleared after read so a refresh shows starter content.
-- **Shared vs mirrored editor:** EXTRACT a shared client component `AiHtmlEditor` under `src/components/`. Today the landing studio uses semantic classes (`.landing-editor`, `.editor-tabs`, `.studio-code`, `.studio-preview`, `.landing-ai`) while both template builders use raw Tailwind utility soup — they are inconsistent. A shared component (Code/Preview tabs + sandboxed preview + AI iterate panel) used by all three surfaces is the lowest-duplication way to make them consistent and is required by goal (4). It takes props for `kind`, `html`, `onHtmlChange`, and renders the `<textarea>` the parent `<form>` serializes.
+- `orders` table (from `supabase/migrations/20261021_roles_approvals_billing.sql`) columns ONLY:
+  `id uuid pk`, `user_id uuid`, `stripe_session_id text unique`, `plan text check in ('starter','growth','enterprise')`, `amount_cents integer`, `currency text default 'eur'`, `status text check in ('pending','paid','cancelled','refunded')`, `created_at timestamptz`.
+  Problems for this task: (1) the `plan` CHECK does NOT allow `'single'`, which the checkout route and `plans.ts` both send; (2) there is no column to distinguish one-time vs monthly billing or to track one-time credit consumption.
+- `campaigns` columns: `id, user_id, title, subject, body_html, status (draft|pending_approval|sent|rejected), created_at, template_id, group_id, landing_page_url, requested_at, approved_at, approved_by, rejection_reason`. `created_at` exists and is reliable → used for "campaigns this period".
+- `src/app/api/checkout/route.ts` sends `metadata[user_id]`, `metadata[plan]`, mode `payment` for `single` else `subscription`, success_url `…/dashboard/services/success?session_id={CHECKOUT_SESSION_ID}`. **Do not change its request shape.**
+- `success/page.tsx` is a static component — verifies nothing, records nothing.
+- `launchCampaign` in `src/app/dashboard/campaigns/actions.ts` inserts `pending_approval` with no paid/allowance check.
+- Admin-approval flow (`approveCampaign`/`rejectCampaign`) is correct and must stay unchanged. Enforcement goes at creation time only.
+- Supabase server client: `@/lib/supabase/server` `createClient()` (async). RLS: users can only see their own `orders` (policy "Users view own orders"). The success page runs as the user, so an authenticated insert/upsert into `orders` for the user's own row is allowed by the existing `for all`-style policy? NO — orders only has a SELECT policy. Inserts must use the **service-role client** (`SUPABASE_SERVICE_ROLE_KEY` exists per README). Check `src/lib/supabase/` for an existing admin/service client; if none, create one.
 
-## MUST NOT CHANGE (preserve exactly)
-
-- Safety framing in `src/lib/ai.ts` system instructions: the educational/authorized-simulation wording, "Do not request or store real credentials", "no external resources", email `{{link}}` hard-requirement, table-based email layout rule. Keep the existing no-disclaimer lines as-is (they are already in the file).
-- Any "SECURITY AWARENESS TRAINING SIMULATION" / "credentials are NOT stored" markers in UI copy (e.g. landing `.studio-safety` block). Keep them.
-- `sandbox=""` on EVERY preview iframe. New previews must also use `sandbox=""`.
-- The DashScope request shape in `ai.ts`: endpoint `${baseUrl}/chat/completions`, bearer `DASHSCOPE_API_KEY`, model `DEEPSEEK_MODEL`/default, `messages:[{role:system},{role:user, content:[{type:text},{type:image_url,...}]}]`, markdown-fence stripping, exact-error surfacing. Only ADD `currentHtml` to the text part; do not restructure the request.
-- `.env` file, all env var names (`DASHSCOPE_API_KEY`, `DASHSCOPE_BASE_URL`, `DEEPSEEK_MODEL`).
-- Save flows: server actions `createLandingPage`, `createTemplate`, `updateTemplate` and their form field names (`name`, `urlSlug`, `htmlContent`; `name`, `subject`, `bodyHtml`, `id`). No auto-save anywhere.
-- API route `/api/generate-content` auth gate (401), image/video mime validation, 20MB cap, video-skip, `{ html }` / `{ error }` responses, exact-error surfacing. New `currentHtml` must be backward compatible (absent = today's from-scratch behavior).
+## MUST NOT CHANGE (hard constraints)
+- DB column names, table names, route paths (`/dashboard/services`, `/dashboard/groups`, `/dashboard/requests`, etc.), server-action function names (`launchCampaign`, `approveCampaign`…), form field names (`title`, `templateId`, `groupId`, `landingPageUrl`, `plan`), and the `{{link}}` token.
+- Checkout route request shape and env var names (`STRIPE_SECRET_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DASHSCOPE_*`, `DEEPSEEK_MODEL`, SMTP_*, `NEXT_PUBLIC_*`).
+- Safety framing: admin approval, "credentials NOT stored", sandboxed preview iframes (`sandbox=""` / srcDoc preview in builders), `.env` file.
+- Existing builder/studio layouts (`landing-pages/create`, `templates/create`, their `[id]/edit`) — terminology text may change, structure/iframe must not regress.
+- Do NOT edit existing migration files. New DDL goes in a NEW migration file.
 
 ---
 
-## Plan
+## GOAL 1 — Make purchases real + enforce allowance
 
-- [ ] 1. Add optional `currentHtml` revision support to `src/lib/ai.ts`.
-      Extend `generateHtmlWithAi` params with `currentHtml?: string`. Add two revision system instructions (landing + email) OR append a revision directive to the existing instruction when `currentHtml` is present; keep the from-scratch path untouched when absent. When present, the USER message text must instruct: "Apply the requested changes to the HTML document below and return the COMPLETE revised HTML document. Preserve everything not mentioned. Return ONLY raw HTML." then the current HTML. For `kind==='email'` the revision directive MUST restate: the primary CTA href must remain exactly `{{link}}`. Do NOT touch the DashScope request shape, fence-stripping, or error handling.
-      Files: src/lib/ai.ts
-      Verify: `npm run build` succeeds (type-check passes). Confirm `currentHtml` is optional (no caller breaks).
+**Entitlement model (confirmed with user):**
+- one-time `single` = exactly 1 campaign credit (consumable, never resets).
+- monthly `starter`=2, `growth`=10, `enterprise`=unlimited campaigns per billing month.
+- "Campaigns used this period" = **count of rows in `campaigns` for the user with `created_at >= start of current calendar (UTC) month`.** (Simplest correct definition; documented. Rejected campaigns still count as a used attempt — acceptable and simplest; document this.)
+- Monthly quota = quota of the user's **active monthly subscription** (most recently purchased monthly order within the current month window; see note). `remaining_monthly = max(0, quota - used_this_month)` (enterprise = Infinity).
+- One-time credits: `credits_remaining = count(paid single orders) - count(consumed single orders)`. Add to allowance. Consumed when a campaign is created and no monthly allowance was available (prefer consuming monthly quota first, then a one-time credit).
+- `can_create = remaining_monthly > 0 OR credits_remaining > 0`.
 
-- [ ] 2. Thread `currentHtml` through `src/app/api/generate-content/route.ts`.
-      Read `const currentHtml = (formData.get('currentHtml') as string | null)?.trim() || undefined`. Pass it to `generateHtmlWithAi`. Keep the "prompt or files required" guard — but when `currentHtml` is present, a prompt alone (no files) is valid (already true since prompt satisfies the guard). Preserve auth/mime/size/video-skip/error handling untouched.
-      Files: src/app/api/generate-content/route.ts
-      Verify: `npm run build` succeeds. Runtime (needs verification during implementation): POST with `currentHtml` returns revised HTML; POST without it behaves as today.
+**Migration (NEW file, full DDL):** add a billing-type + credit-consumption model to `orders` without breaking existing rows, and widen the plan CHECK to include `single`.
 
-- [ ] 3. Create the shared `AiHtmlEditor` client component.
-      `src/components/ai-html-editor.tsx` ('use client'). Props: `{ kind: 'landing'|'email'; html: string; onHtmlChange: (v:string)=>void; textareaName: string; textareaRequired?: boolean }`. Renders: the Code/Preview `.editor-tabs` + `.studio-code` `<textarea name={textareaName}>` bound to `html` + `.studio-preview` `<iframe srcDoc={html} sandbox="" title="Preview" />` (copy the landing studio markup exactly). Plus an "Iterate with AI" panel using `.landing-ai` markup (reference images chips via `.ai-files`, prompt textarea, submit button `.ai-generate`, inline `.auth-message error`). On submit it builds FormData (`prompt`, `kind`, `files`, and `currentHtml=html` when `html` is non-empty/non-starter), POSTs `/api/generate-content`, and on success calls `onHtmlChange(data.html)` and switches to Preview. Button label: "Revising…" when html present, "Generating…" when empty; idle "Iterate with AI" / "Generate with AI" accordingly. Manage `tab`, `aiPrompt`, `aiFiles`, `aiLoading`, `aiError` internally.
-      Files: src/components/ai-html-editor.tsx
-      Verify: `npm run build` succeeds. Component compiles and is importable.
+Columns to use on `orders`: existing `user_id, plan, amount_cents, currency, status, stripe_session_id, created_at` PLUS new `billing_type text` ('one-time'|'monthly'), `period_start timestamptz` (for monthly, start of the paid month; nullable), `credit_consumed boolean default false` (only meaningful for one-time orders — marks a single-credit as used).
 
-- [ ] 4. Refactor the landing CREATE page to use `AiHtmlEditor`.
-      Replace the inline `.landing-editor` section AND the inline `.landing-ai` sub-panel in `src/app/dashboard/landing-pages/create/page.tsx` with `<AiHtmlEditor kind="landing" html={html} onHtmlChange={setHtml} textareaName="htmlContent" textareaRequired />`. Keep name/urlSlug fields, `.studio-safety` block, `createLandingPage` submit, `starterHtml`. Add the sessionStorage one-shot read on mount (key `phishsafe:create-handoff:landing`): if present, seed `html` from it, switch to preview, remove the key. Keep `sandbox=""`.
-      Files: src/app/dashboard/landing-pages/create/page.tsx
-      Verify: `npm run build` succeeds. Runtime: page renders, generate/iterate work, preview sandboxed, save unchanged.
+- [ ] 1. **New migration SQL** `supabase/migrations/20261101_orders_entitlements.sql`:
+      Widen plan CHECK to include `single`; add `billing_type`, `period_start`, `credit_consumed` columns (all `add column if not exists`); backfill `billing_type` from plan (`single`→one-time else monthly); add index on `(user_id, status)`. Include a header comment: "Run this in the Supabase SQL editor before testing."
+      Files: `supabase/migrations/20261101_orders_entitlements.sql`
+      Verify: file parses as valid Postgres DDL (review by hand; the app can't run DDL). Note in final report: user MUST run it in Supabase SQL editor.
 
-- [ ] 5. Give the template CREATE page the live preview + iterate box via `AiHtmlEditor`.
-      In `src/app/dashboard/templates/create/page.tsx` replace the plain `bodyHtml` textarea AND the existing `.landing-ai` generate panel with `<AiHtmlEditor kind="email" html={bodyHtml} onHtmlChange={setBodyHtml} textareaName="bodyHtml" textareaRequired />`. Keep name/subject fields and `createTemplate` submit. Seed a sensible email starter (or empty) and add the sessionStorage one-shot read (key `phishsafe:create-handoff:template`). Wrap the form in the landing studio layout classes (`.landing-studio` / `.landing-settings` / editor) OR keep its current container but ensure the shared editor renders consistently — prefer matching the landing studio two-column layout for goal (4) consistency. Keep `{{link}}` helper text.
-      Files: src/app/dashboard/templates/create/page.tsx
-      Verify: `npm run build` succeeds. Runtime: Code/Preview tabs work, iframe `sandbox=""`, generate+iterate work, save unchanged.
+- [ ] 2. **Service-role Supabase client.** Check `src/lib/supabase/` for an existing admin client. If absent, add `src/lib/supabase/admin.ts` exporting `createAdminClient()` using `@supabase/supabase-js` `createClient(NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession:false } })`. Guard: if `SUPABASE_SERVICE_ROLE_KEY` missing, return null and callers treat as "no verified orders".
+      Files: `src/lib/supabase/admin.ts` (new, only if none exists)
+      Verify: `npm run build` passes.
 
-- [ ] 6. Give the template EDIT form the live preview + iterate box via `AiHtmlEditor`.
-      In `src/app/dashboard/templates/[id]/edit/EditTemplateForm.tsx` replace the plain `bodyHtml` textarea + `.landing-ai` panel with `<AiHtmlEditor kind="email" html={bodyHtml} onHtmlChange={setBodyHtml} textareaName="bodyHtml" textareaRequired />`. Keep the hidden `id`, name/subject defaults, `updateTemplate` action, `SubmitButton`. Since existing body_html is present, iterate requests will send `currentHtml` (revision). Keep `{{link}}` helper text.
-      Files: src/app/dashboard/templates/[id]/edit/EditTemplateForm.tsx
-      Verify: `npm run build` succeeds. Runtime: editing an existing template, iterate revises in place and preview updates.
+- [ ] 3. **Entitlements library** `src/lib/entitlements.ts`: pure + data functions.
+      - `PLAN_QUOTA: Record<PlanId, number>` = { single: 1 (as credit, not monthly), starter: 2, growth: 10, enterprise: Infinity }.
+      - `async getEntitlement(userId): { plan: PlanId|null, planName, billing, monthlyQuota:number, usedThisMonth:number, remainingMonthly:number, oneTimeCredits:number, canCreate:boolean }` reading `orders` (service-role) + counting `campaigns` since UTC month start. Handle no-orders / Stripe-not-configured gracefully (returns canCreate:false, plan:null).
+      - `async consumeAllowance(userId)`: decide whether monthly quota covers it; if not, mark one oldest unconsumed paid `single` order `credit_consumed=true`. Idempotency not required here (called once inside launchCampaign after the allowance check).
+      Files: `src/lib/entitlements.ts` (new)
+      Verify: `npm run build` passes.
 
-- [ ] 7. Build the create-mode popup component (Option 2, no draft).
-      `src/components/create-resource-dialog.tsx` ('use client'). Props: `{ kind: 'landing'|'template'; createHref: string; label: string }`. Renders a trigger button; opens a modal (backdrop + panel, close button, Escape-to-close, backdrop-click close, focus the panel on open). Two choices: "Create blank" → `router.push(createHref)` (no sessionStorage key). "Create with AI" → EXPANDS the panel in place to reveal image upload (`.ai-files` chips) + prompt textarea + Generate button; on submit POST `/api/generate-content` (from scratch, `kind` mapped: landing→landing, template→email), on success write `{ html }` to `sessionStorage` under `phishsafe:create-handoff:<kind-or-email>` matching the key the create pages read, then `router.push(createHref)`. Show loading + inline `.auth-message error`. Style with existing semantic classes + new modal classes (step 9).
-      Files: src/components/create-resource-dialog.tsx
-      Verify: `npm run build` succeeds. Runtime: modal opens/closes, both paths navigate correctly, generated HTML lands in the create editor unsaved.
+- [ ] 4. **Payment verification on success page.** Convert `src/app/dashboard/services/success/page.tsx` to an async server component. Read `searchParams.session_id`; if present and `STRIPE_SECRET_KEY` set, `GET https://api.stripe.com/v1/checkout/sessions/{id}` with bearer key; confirm `payment_status==='paid'` OR `status==='complete'` AND `metadata.user_id === currentUser.id`; then UPSERT `orders` (onConflict `stripe_session_id`) via service-role client: `{ user_id, plan, billing_type (one-time if plan==='single' else monthly), amount_cents (from session.amount_total), currency, status:'paid', stripe_session_id, period_start (month start for monthly) }`. Idempotent via unique `stripe_session_id`. On any failure (no key, unpaid, user mismatch, Stripe error) DO NOT grant — render a graceful "could not confirm / test mode" message. Keep the existing success visual + CTA, add entitlement summary.
+      Files: `src/app/dashboard/services/success/page.tsx`
+      Verify: `npm run build` passes; manual: visiting without session_id shows graceful state, not a crash.
 
-- [ ] 8. Wire the popup into the two list pages without regressing audiences.
-      `ResourceLibrary` is shared (audiences/templates/pages) and server-rendered with a plain create `<Link>`. Add an optional `createSlot?: React.ReactNode` prop to `src/components/resource-library.tsx`; when provided, render it in place of the header create `<Link>` (and ideally the empty-state CTA). In `src/app/dashboard/templates/page.tsx` and `src/app/dashboard/landing-pages/page.tsx`, pass `createSlot={<CreateResourceDialog .../>}`. Audience page keeps the plain link (no slot). Keep `createHref`/`createLabel` as the fallback.
-      Files: src/components/resource-library.tsx, src/app/dashboard/templates/page.tsx, src/app/dashboard/landing-pages/page.tsx
-      Verify: `npm run build` succeeds. Runtime: templates + landing-pages lists show the popup trigger; audiences list unchanged.
+- [ ] 5. **Enforce allowance in `launchCampaign`.** Before the insert, call `getEntitlement(user.id)`; if `!canCreate` throw `Error("You've used all campaigns included in your plan this month. Upgrade or buy a single campaign to continue.")` and do not insert. After a successful insert, call `consumeAllowance(user.id)`. Do NOT touch `approveCampaign`/`rejectCampaign`. Keep redirect behavior.
+      Files: `src/app/dashboard/campaigns/actions.ts`
+      Verify: `npm run build` passes. Manual: with no orders, submitting the create form throws the clear error and creates no campaign row.
 
-- [ ] 9. Add modal + any new editor CSS to globals.css (semantic classes, dark-mode).
-      Add `.create-modal-backdrop`, `.create-modal`, `.create-modal-choices`, `.create-modal-expand` (or similar) reusing tokens (`--surface`, `--line`, `--ink`, `--subtle`) so dark mode works via existing `.dark { --surface... }`. Add a `.dark` rule only if a hardcoded color needs it. If the template create page adopts the two-column `.landing-studio` layout, verify no new classes are needed (reuse existing). Do NOT convert anything to Tailwind utilities. Keep responsive behavior at the 1050px/760px breakpoints consistent.
-      Files: src/app/globals.css
-      Verify: `npm run build` succeeds. Runtime: modal readable in light + dark; editor looks consistent across all three surfaces.
+- [ ] 6. **Surface entitlement state in UI.**
+      - `services/page.tsx` (Billing): show a banner with current plan + `remainingMonthly` + `oneTimeCredits` or "No active plan — purchase to create campaigns."
+      - `campaigns/create/page.tsx`: fetch entitlement; if `!canCreate`, replace the form with an empty-state panel linking to `/dashboard/services` ("Purchase a plan to create campaigns"); else show "X campaigns remaining this month" above the form.
+      - `DashboardClient.tsx` create entry points: leave as-is (enforcement + create page handle the gating).
+      Files: `src/app/dashboard/services/page.tsx`, `src/app/dashboard/campaigns/create/page.tsx`
+      Verify: `npm run build` passes.
 
-- [ ] 10. Full verification pass.
-      Files: (none — verification only)
-      Verify: `npm run lint` and `npm run build` both pass clean. Manual runtime checks (needs verification during implementation): (a) landing create — blank + create-with-AI + iterate + preview `sandbox=""` + save; (b) template create — same; (c) template edit — iterate revises existing body, `{{link}}` preserved in email output; (d) popup accessible (Esc/backdrop/close, focus); (e) safety copy + sandbox intact; (f) generating without a key configured still returns the friendly error. Remove any temp files.
+---
+
+## GOAL 2 — Terminology (display-string rename ONLY)
+
+Standard CTA chosen: **"Get started"** (used everywhere a public CTA was "Start testing"). "New request" → **"New Campaign"**. "Plans & billing"/"Services" → **"Billing"**. "Approvals" → **"Pending Campaigns"** (clearer, standard). "Audiences"/"Audience*" → **"Groups"/"Recipient group"**. Keep Templates = "Email Templates", "Landing Pages", "Campaigns", Account.
+
+### Terminology mapping table (old → new, per file)
+
+| File | Old string | New string |
+|---|---|---|
+| `components/dashboard-shell.tsx` | nav "New request" | "New Campaign" |
+| | nav "Approvals" | "Pending Campaigns" |
+| | nav "Plans & billing" | "Billing" |
+| | nav "Audiences" | "Groups" |
+| | nav "Account management" | "Users" (admin) |
+| | eyebrow "Workspace"/"Build" | keep (generic, fine) |
+| | topbar-kicker "Security awareness workspace" | "Security awareness platform" |
+| `components/marketing-nav.tsx` | CTA "Start testing" | "Get started" |
+| `components/resource-library.tsx` | audience eyebrow "Audience library" / title "Authorized audiences" / desc | "Groups" / "Recipient groups" / "Organize recipients into consented groups for targeted simulations." |
+| | page eyebrow "Experience library" / desc "learning moments" | "Landing Pages" / "Pages recipients see after a simulated click." |
+| | template eyebrow "Content library" | "Email Templates" |
+| `dashboard/groups/page.tsx` | createLabel "New audience" | "New Group" |
+| `dashboard/groups/create/page.tsx` | eyebrow "Audience builder" / h1 "Create an authorized audience" / button "Create audience (n)" | "Groups" / "Create a recipient group" / "Create group (n)" |
+| `dashboard/templates/page.tsx` | createLabel/label "New template" | "New Email Template" |
+| `dashboard/templates/create/page.tsx` | eyebrow "Email studio" | "Email Template" |
+| `dashboard/landing-pages/page.tsx` | createLabel "New landing page" | "New Landing Page" (fine as-is) |
+| `dashboard/landing-pages/create/page.tsx` | eyebrow "Landing-page studio" / h1 "Build a learning moment" | "Landing Page" / "Create a landing page" |
+| `dashboard/campaigns/create/page.tsx` | eyebrow "Campaign builder" / h1 "Request a new simulation" | "New Campaign" / "Create a campaign" |
+| `dashboard/requests/page.tsx` | eyebrow "Administrator" / h1 "Campaign approvals" | "Pending Campaigns" / "Pending campaigns" |
+| `dashboard/services/page.tsx` | eyebrow "Services" / h1 "Choose your protection plan" | "Billing" / "Plans & billing" |
+| `dashboard/DashboardClient.tsx` | "Request campaign" / "New request" / "Create request" | "New Campaign" / "New Campaign" / "Create a campaign" |
+| `app/page.tsx` | "learning moment" copy | "a coaching moment" (keep meaning, drop fluff) |
+| `pricing/page.tsx` | "Custom learning pages" | "Custom landing pages" |
+
+(Keep route paths and the `kind`/`createHref` props unchanged. The `resource-library` `kind="audience"` prop is an internal key — do NOT rename the prop value, only displayed strings.)
+
+- [ ] 7. **Apply the terminology map above.** Edit each listed file changing ONLY user-facing display strings per the table. Do not touch props, routes, action names, or form fields.
+      Files: all files in the table.
+      Verify: `npm run lint` && `npm run build` pass; grep confirms "Start testing", "New request", "Plans & billing", "Choose your protection", "Build a learning moment", "Landing-page studio", "Email studio" no longer appear in `src/`.
+
+---
+
+## GOAL 3 — Visual polish (topbar priority)
+
+- [ ] 8. **Redesign the dashboard topbar.** In `dashboard-shell.tsx` keep all behavior (mobile toggle, notifications dropdown, theme toggle, role pill, greeting). Improve markup grouping if needed (keep existing class names; may add BEM-style modifiers). In `globals.css` restyle `.topbar` (cleaner height, border, subtle shadow, better blur), `.topbar-left/.topbar-actions` (alignment/spacing), `.topbar-kicker/.topbar-title` (clearer hierarchy, maybe breadcrumb-like), `.role-pill` (modern pill, better dark-mode), icon buttons + theme toggle (consistent sizing/hover). Ensure dark mode (`.dark .topbar` etc.) and the 760px/540px responsive rules still hold (role-pill hidden on mobile, kicker hidden, mobile-menu visible).
+      Files: `src/components/dashboard-shell.tsx`, `src/app/globals.css`
+      Verify: `npm run build` passes. Manual: topbar looks polished in light + dark, responsive at <760px (mobile menu button shows), notifications/theme/role all functional.
+
+- [ ] 9. **Light consistency polish pass** on dashboard page headings/spacing (`.page-heading`, `.eyebrow`, `.content-page` spacing) WITHOUT redesigning pages or touching builder/studio iframe layouts. Keep semantic-class CSS (no Tailwind utility conversion).
+      Files: `src/app/globals.css` (and only trivial className tweaks if required)
+      Verify: `npm run build` passes; builders (`landing-pages/create`, `templates/create`) still render preview iframes unchanged.
+
+---
+
+## Final verification (whole task)
+- `npm run lint` → exit 0.
+- `npm run build` → succeeds with no type errors.
+- Report to user: **run `supabase/migrations/20261101_orders_entitlements.sql` in the Supabase SQL editor** (app cannot run DDL). Without it, `single` purchases and credit tracking will fail the plan CHECK.

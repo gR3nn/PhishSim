@@ -1,6 +1,6 @@
 {
-  "task_id": "task-ai-builder-ux",
-  "task_description": "PhishSafe AI builder UX overhaul: add optional currentHtml revision to ai.ts + /api/generate-content; extract a shared AiHtmlEditor (Code/Preview sandboxed live preview + Iterate-with-AI panel) used by landing create, template create, and template edit; add a no-draft (sessionStorage handoff) create-mode popup on the templates and landing-pages list pages; keep all three builders consistent and dark-mode styled. Preserve safety framing, sandbox=\"\", env, save flows, field names, and the DashScope request shape. Landing-page edit CRUD is OUT OF SCOPE.",
+  "task_id": "task-purchases-terminology-polish",
+  "task_description": "PhishSafe: (1) make Stripe purchases real by verifying payment server-side on the success page, recording orders, and enforcing a per-plan campaign allowance in launchCampaign; (2) rename all user-facing UI strings to standard phishing-simulation terminology (display-only); (3) redesign the dashboard topbar and apply a light visual-polish pass. Next.js 16 App Router + TypeScript + Supabase (Postgres) + Tailwind v4 with semantic-class CSS. Preserve admin-approval flow, credential-not-stored guarantees, sandboxed preview iframes, env var names, DB column/route/action/form-field names, and the {{link}} token.",
   "status": "completed",
   "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
   "blocked_reason": null
