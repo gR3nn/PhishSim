@@ -9,5 +9,5 @@ export default async function GroupsPage() {
         .order('created_at', { ascending: false })
 
     const items = (groups || []).map((group) => ({ id: group.id, title: group.name, subtitle: `${group.targets[0]?.count || 0} authorized recipients`, meta: `Created ${new Date(group.created_at).toLocaleDateString()}`, href: `/dashboard/groups/${group.id}` }))
-    return <ResourceLibrary kind="audience" items={items} createHref="/dashboard/groups/create" createLabel="New audience" />
+    return <ResourceLibrary kind="audience" items={items} createHref="/dashboard/groups/create" createLabel="New Group" />
 }

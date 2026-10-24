@@ -66,7 +66,7 @@ export default function DashboardClient({ initialStats, campaigns, role, dailyAc
     return <div className="dashboard-stack">
         <section className="page-heading">
             <div><p className="eyebrow">{role === 'admin' ? 'Command center' : 'Your workspace'}</p><h1>{role === 'admin' ? 'Security overview' : 'Awareness at a glance'}</h1><p>{role === 'admin' ? 'Review platform activity, campaign performance, and requests needing attention.' : 'Track your organization’s simulations and build safer habits over time.'}</p></div>
-            <Link href="/dashboard/campaigns/create" className="button primary"><Send size={17} /> Request campaign</Link>
+            <Link href="/dashboard/campaigns/create" className="button primary"><Send size={17} /> New Campaign</Link>
         </section>
 
         {role === 'admin' && pendingCount > 0 && <section className="attention-banner"><div className="attention-icon"><ShieldCheck size={22} /></div><div><strong>{pendingCount} request{pendingCount === 1 ? ' is' : 's are'} ready for review</strong><p>Check consent details and approve safe campaigns before delivery.</p></div><Link href="/dashboard/requests">Review queue <ArrowRight size={16} /></Link></section>}
@@ -95,8 +95,8 @@ export default function DashboardClient({ initialStats, campaigns, role, dailyAc
         </section>
 
         <section className="panel campaigns-panel">
-            <div className="panel-heading"><div><p className="eyebrow">Campaign activity</p><h2>Recent campaigns</h2></div><Link href="/dashboard/campaigns/create" className="text-link">New request <ArrowRight size={15} /></Link></div>
-            {campaigns.length === 0 ? <div className="empty-state"><div><Send size={24} /></div><h3>No campaigns yet</h3><p>Create your first authorized simulation request and follow its approval here.</p><Link href="/dashboard/campaigns/create" className="button primary">Create request</Link></div> : <div className="campaign-list">{campaigns.slice(0, 5).map((campaign) => <Link href={`/dashboard/campaigns/${campaign.id}`} className="campaign-row" key={campaign.id}><div className="campaign-monogram">{campaign.title.charAt(0)}</div><div className="campaign-name"><strong>{campaign.title}</strong><span>Created {new Date(campaign.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div><span className={`status-badge ${campaign.status}`}>{campaign.status.replace('_', ' ')}</span><ArrowRight size={17} className="row-arrow" /></Link>)}</div>}
+            <div className="panel-heading"><div><p className="eyebrow">Campaign activity</p><h2>Recent campaigns</h2></div><Link href="/dashboard/campaigns/create" className="text-link">New Campaign <ArrowRight size={15} /></Link></div>
+            {campaigns.length === 0 ? <div className="empty-state"><div><Send size={24} /></div><h3>No campaigns yet</h3><p>Create your first authorized simulation request and follow its approval here.</p><Link href="/dashboard/campaigns/create" className="button primary">Create a campaign</Link></div> : <div className="campaign-list">{campaigns.slice(0, 5).map((campaign) => <Link href={`/dashboard/campaigns/${campaign.id}`} className="campaign-row" key={campaign.id}><div className="campaign-monogram">{campaign.title.charAt(0)}</div><div className="campaign-name"><strong>{campaign.title}</strong><span>Created {new Date(campaign.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div><span className={`status-badge ${campaign.status}`}>{campaign.status.replace('_', ' ')}</span><ArrowRight size={17} className="row-arrow" /></Link>)}</div>}
         </section>
     </div>
 }

@@ -5,9 +5,9 @@ type ResourceKind = 'audience' | 'template' | 'page'
 type ResourceItem = { id: string; title: string; subtitle: string; meta: string; href?: string }
 
 const config = {
-  audience: { icon: Users, eyebrow: 'Audience library', title: 'Authorized audiences', description: 'Organize employees into clear, consented groups for targeted awareness exercises.', empty: 'No audiences yet' },
-  template: { icon: Mail, eyebrow: 'Content library', title: 'Email templates', description: 'Create reusable training messages for realistic, consistent simulations.', empty: 'No templates yet' },
-  page: { icon: FileCode2, eyebrow: 'Experience library', title: 'Landing pages', description: 'Design the learning moments employees see after interacting with a simulation.', empty: 'No landing pages yet' },
+  audience: { icon: Users, eyebrow: 'Groups', title: 'Recipient groups', description: 'Organize recipients into consented groups for targeted simulations.', empty: 'No groups yet' },
+  template: { icon: Mail, eyebrow: 'Email Templates', title: 'Email templates', description: 'Create reusable training messages for realistic, consistent simulations.', empty: 'No templates yet' },
+  page: { icon: FileCode2, eyebrow: 'Landing Pages', title: 'Landing pages', description: 'Pages recipients see after a simulated click.', empty: 'No landing pages yet' },
 }
 
 export function ResourceLibrary({ kind, items, createHref, createLabel, createSlot }: { kind: ResourceKind; items: ResourceItem[]; createHref: string; createLabel: string; createSlot?: React.ReactNode }) {

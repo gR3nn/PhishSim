@@ -66,7 +66,7 @@ export default function CreateTemplatePage() {
         <div className="content-page">
             <section className="page-heading">
                 <div>
-                    <p className="eyebrow">Email studio</p>
+                    <p className="eyebrow">Email Template</p>
                     <h1>Create an email template</h1>
                     <p>Draft the email recipients receive. Preview the HTML safely before saving.</p>
                 </div>

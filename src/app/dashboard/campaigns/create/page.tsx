@@ -13,7 +13,7 @@ export default async function CreateCampaignPage() {
     if (!entitlement?.canCreate) {
         return (
             <div className="content-page">
-                <section className="page-heading"><div><p className="eyebrow">Campaign builder</p><h1>Request a new simulation</h1></div></section>
+                <section className="page-heading"><div><p className="eyebrow">New Campaign</p><h1>Create a campaign</h1></div></section>
                 <div className="panel empty-state">
                     <p className="eyebrow">No campaigns available</p>
                     <h2>Purchase a plan to create campaigns</h2>
@@ -58,7 +58,7 @@ export default async function CreateCampaignPage() {
 
     return (
         <div className="content-page">
-            <section className="page-heading"><div><p className="eyebrow">Campaign builder</p><h1>Request a new simulation</h1><p>Prepare the training scenario and submit it. An administrator will review the audience and content before any email is delivered.</p><small>{remainingNote}</small></div></section>
+            <section className="page-heading"><div><p className="eyebrow">New Campaign</p><h1>Create a campaign</h1><p>Prepare the training scenario and submit it. An administrator will review the audience and content before any email is delivered.</p><small>{remainingNote}</small></div></section>
             <div className="request-layout">
             <form action={launchCampaign} className="form-card">
                 <section className="form-section"><h2>Campaign details</h2><p>Give this simulation a clear internal name.</p><div className="form-grid"><div className="field full">

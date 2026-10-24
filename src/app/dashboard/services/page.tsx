@@ -26,7 +26,7 @@ export default async function ServicesPage() {
   const entitlement = user ? await getEntitlement(user.id) : null
 
   return <div className="content-page">
-    <section className="page-heading"><div><p className="eyebrow">Services</p><h1>Choose your protection plan</h1><p>Every plan includes admin review before a simulation is delivered. Payments use Stripe Checkout in test mode.</p></div></section>
+    <section className="page-heading"><div><p className="eyebrow">Billing</p><h1>Plans & billing</h1><p>Every plan includes admin review before a simulation is delivered. Payments use Stripe Checkout in test mode.</p></div></section>
     {entitlementBanner(entitlement)}
     <section className="plans-grid">
       {(Object.entries(plans) as [PlanId, (typeof plans)[PlanId]][]).map(([id, plan]) => {

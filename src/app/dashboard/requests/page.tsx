@@ -15,7 +15,7 @@ export default async function RequestsPage() {
   const queue = requests || []
 
   return <div className="content-page">
-    <section className="page-heading"><div><p className="eyebrow">Administrator</p><h1>Campaign approvals</h1><p>Verify that each request has an authorized audience and suitable training content before delivery.</p></div></section>
+    <section className="page-heading"><div><p className="eyebrow">Pending Campaigns</p><h1>Pending campaigns</h1><p>Verify that each request has an authorized audience and suitable training content before delivery.</p></div></section>
     <section className="stat-grid compact-stats">
       <MiniStat icon={Clock3} label="Awaiting review" value={queue.filter((item) => item.status === 'pending_approval').length} />
       <MiniStat icon={Check} label="Approved" value={queue.filter((item) => item.status === 'sent').length} />

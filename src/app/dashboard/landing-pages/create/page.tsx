@@ -55,8 +55,8 @@ export default function CreateLandingPage() {
     <div className="content-page">
       <section className="page-heading">
         <div>
-          <p className="eyebrow">Landing-page studio</p>
-          <h1>Build a learning moment</h1>
+          <p className="eyebrow">Landing Page</p>
+          <h1>Create a landing page</h1>
           <p>Create the educational page recipients see after a simulated click. Preview it safely before saving.</p>
         </div>
       </section>

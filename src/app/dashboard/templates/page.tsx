@@ -10,5 +10,5 @@ export default async function TemplatesPage() {
         .order('created_at', { ascending: false })
 
     const items = (templates || []).map((template) => ({ id: template.id, title: template.name, subtitle: template.subject || 'No subject added', meta: `Updated ${new Date(template.created_at).toLocaleDateString()}`, href: `/dashboard/templates/${template.id}` }))
-    return <ResourceLibrary kind="template" items={items} createHref="/dashboard/templates/create" createLabel="New template" createSlot={<CreateResourceDialog kind="template" createHref="/dashboard/templates/create" label="New template" />} />
+    return <ResourceLibrary kind="template" items={items} createHref="/dashboard/templates/create" createLabel="New Email Template" createSlot={<CreateResourceDialog kind="template" createHref="/dashboard/templates/create" label="New Email Template" />} />
 }

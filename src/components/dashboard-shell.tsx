@@ -12,13 +12,13 @@ export type AppNotification = { id: string; title: string; detail: string; creat
 
 const navigation: NavItem[] = [
   { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, section: 'workspace' },
-  { href: '/dashboard/campaigns/create', label: 'New request', icon: Send, section: 'workspace' },
-  { href: '/dashboard/requests', label: 'Approvals', icon: ShieldCheck, adminOnly: true, section: 'workspace' },
-  { href: '/dashboard/services', label: 'Plans & billing', icon: CreditCard, clientOnly: true, section: 'workspace' },
-  { href: '/dashboard/groups', label: 'Audiences', icon: Users, section: 'build' },
+  { href: '/dashboard/campaigns/create', label: 'New Campaign', icon: Send, section: 'workspace' },
+  { href: '/dashboard/requests', label: 'Pending Campaigns', icon: ShieldCheck, adminOnly: true, section: 'workspace' },
+  { href: '/dashboard/services', label: 'Billing', icon: CreditCard, clientOnly: true, section: 'workspace' },
+  { href: '/dashboard/groups', label: 'Groups', icon: Users, section: 'build' },
   { href: '/dashboard/templates', label: 'Templates', icon: FileText, section: 'build' },
   { href: '/dashboard/landing-pages', label: 'Landing pages', icon: Sparkles, section: 'build' },
-  { href: '/dashboard/users', label: 'Account management', icon: Users, adminOnly: true, section: 'build' },
+  { href: '/dashboard/users', label: 'Users', icon: Users, adminOnly: true, section: 'build' },
 ]
 
 export function DashboardShell({ children, email, name, role, notifications }: { children: React.ReactNode; email: string; name: string; role: AppRole; notifications: AppNotification[] }) {
@@ -65,7 +65,7 @@ export function DashboardShell({ children, email, name, role, notifications }: {
         <header className="topbar">
           <div className="topbar-left">
             <button className="mobile-menu" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu size={21} /></button>
-            <div><p className="topbar-kicker">Security awareness workspace</p><p className="topbar-title">Welcome back, {name.split(' ')[0]}</p></div>
+            <div><p className="topbar-kicker">Security awareness platform</p><p className="topbar-title">Welcome back, {name.split(' ')[0]}</p></div>
           </div>
           <div className="topbar-actions">
             <span className={`role-pill ${role}`}><span />{role === 'admin' ? 'Admin mode' : 'Client mode'}</span>
