@@ -6,7 +6,7 @@ import type { PlanId } from '@/lib/plans'
 export default function PurchaseButton({ plan, featured }: { plan: PlanId; featured?: boolean }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [selected, setSelected] = useState(false)
+  const [unavailable, setUnavailable] = useState(false)
 
   async function checkout() {
     setLoading(true)
@@ -19,8 +19,8 @@ export default function PurchaseButton({ plan, featured }: { plan: PlanId; featu
       })
       const data = await response.json()
       if (response.status === 503) {
-        setError('Plan selected — checkout is ready to connect when payments are enabled.')
-        setSelected(true)
+        setError("Checkout unavailable — payments aren't configured yet.")
+        setUnavailable(true)
         setLoading(false)
         return
       }
@@ -32,5 +32,5 @@ export default function PurchaseButton({ plan, featured }: { plan: PlanId; featu
     }
   }
 
-  return <><button onClick={checkout} disabled={loading} className={`button ${featured ? 'primary' : 'secondary'} ${selected ? 'selected-plan' : ''}`}>{loading ? 'Opening checkout…' : selected ? 'Selected ✓' : 'Choose plan'}</button>{error && <p className={selected ? 'checkout-note' : 'checkout-error'}>{error}</p>}</>
+  return <><button onClick={checkout} disabled={loading || unavailable} className={`button ${featured ? 'primary' : 'secondary'}`}>{loading ? 'Opening checkout…' : unavailable ? 'Checkout unavailable' : 'Choose plan'}</button>{error && <p className="checkout-error">{error}</p>}</>
 }

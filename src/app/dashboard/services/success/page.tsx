@@ -1,21 +1,12 @@
 import Link from 'next/link'
 import { CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { getEntitlement } from '@/lib/entitlements'
+import { recordOrderFromSession, type StripeCheckoutSession } from '@/lib/orders'
 
-type StripeSession = {
-  id: string
+type StripeSession = StripeCheckoutSession & {
   payment_status?: string
   status?: string
-  amount_total?: number
-  currency?: string
-  metadata?: { user_id?: string; plan?: string }
-}
-
-function startOfCurrentUtcMonth(): string {
-  const now = new Date()
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
 }
 
 async function verifyAndRecordOrder(sessionId: string): Promise<void> {
@@ -25,9 +16,6 @@ async function verifyAndRecordOrder(sessionId: string): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return
-
-  const admin = createAdminClient()
-  if (!admin) return
 
   try {
     const response = await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`, {
@@ -40,23 +28,8 @@ async function verifyAndRecordOrder(sessionId: string): Promise<void> {
     if (!paid) return
     if (session.metadata?.user_id !== user.id) return
 
-    const plan = session.metadata?.plan
-    if (!plan) return
-    const billingType = plan === 'single' ? 'one-time' : 'monthly'
-
-    await admin.from('orders').upsert(
-      {
-        user_id: user.id,
-        plan,
-        billing_type: billingType,
-        amount_cents: session.amount_total ?? 0,
-        currency: session.currency || 'eur',
-        status: 'paid',
-        stripe_session_id: session.id,
-        period_start: billingType === 'monthly' ? startOfCurrentUtcMonth() : null,
-      },
-      { onConflict: 'stripe_session_id' },
-    )
+    // Idempotent via onConflict:'stripe_session_id'; shared with the webhook.
+    await recordOrderFromSession(session)
   } catch {
     // Any failure (fetch error, parse error) — do not grant.
   }

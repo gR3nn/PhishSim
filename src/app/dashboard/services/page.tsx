@@ -1,12 +1,32 @@
-import { Check, Rocket, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { AlertTriangle, Check, Rocket, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import { plans, type PlanId } from '@/lib/plans'
 import { createClient } from '@/lib/supabase/server'
-import { getEntitlement, type Entitlement } from '@/lib/entitlements'
+import { getEntitlement, isBillingConfigured, type Entitlement } from '@/lib/entitlements'
+import { SubmitButton } from '@/components/submit-button'
 import PurchaseButton from './PurchaseButton'
+import { openBillingPortal } from './billing-actions'
 
 const icons = { single: Zap, starter: Rocket, growth: Sparkles, enterprise: ShieldCheck }
 
-function entitlementBanner(entitlement: Entitlement | null) {
+type OrderRow = {
+  id: string
+  plan: string
+  amount_cents: number | null
+  currency: string | null
+  status: string
+  created_at: string
+}
+
+const MONTHLY_PLANS: PlanId[] = ['starter', 'growth', 'enterprise']
+
+function dateLabel(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function entitlementBanner(entitlement: Entitlement | null, configured: boolean) {
+  if (!configured) {
+    return <div className="attention-banner"><div className="attention-icon"><AlertTriangle size={22} /></div><div><strong>Billing is not configured</strong><p>Ask an administrator to set SUPABASE_SERVICE_ROLE_KEY.</p></div></div>
+  }
   if (!entitlement || !entitlement.plan) {
     return <div className="attention-banner"><div className="attention-icon"><Zap size={22} /></div><div><strong>No active plan</strong><p>Purchase to create campaigns.</p></div></div>
   }
@@ -23,11 +43,22 @@ function entitlementBanner(entitlement: Entitlement | null) {
 export default async function ServicesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  const configured = isBillingConfigured()
   const entitlement = user ? await getEntitlement(user.id) : null
+
+  // Owner-scoped read: the orders SELECT RLS policy limits rows to the user's own.
+  const orders = user
+    ? (((await supabase
+        .from('orders')
+        .select('id, plan, amount_cents, currency, status, created_at')
+        .order('created_at', { ascending: false })).data) as OrderRow[] | null) ?? []
+    : []
+
+  const canManage = !!entitlement?.plan && MONTHLY_PLANS.includes(entitlement.plan as PlanId)
 
   return <div className="content-page">
     <section className="page-heading"><div><p className="eyebrow">Billing</p><h1>Plans & billing</h1><p>Every plan includes admin review before a simulation is delivered. Payments use Stripe Checkout in test mode.</p></div></section>
-    {entitlementBanner(entitlement)}
+    {entitlementBanner(entitlement, configured)}
     <section className="plans-grid">
       {(Object.entries(plans) as [PlanId, (typeof plans)[PlanId]][]).map(([id, plan]) => {
         const Icon = icons[id]
@@ -41,6 +72,14 @@ export default async function ServicesPage() {
           <ul className="feature-list">{plan.features.map((feature) => <li key={feature}><Check size={14} />{feature}</li>)}</ul>
         </article>
       })}
+    </section>
+    {canManage && <section className="data-panel"><div className="data-panel-head"><div><h2>Manage subscription</h2><p>Update payment details or cancel through the Stripe billing portal.</p></div><form action={openBillingPortal}><SubmitButton label="Manage subscription" pendingLabel="Opening portal…" className="button secondary" /></form></div></section>}
+    <section className="data-panel"><div className="data-panel-head"><div><h2>Order history</h2><p>Payments recorded on your account.</p></div></div>
+      {orders.length === 0
+        ? <div className="panel empty-state"><p className="eyebrow">No orders yet</p><p>Your purchases will appear here once a payment is confirmed.</p></div>
+        : <div className="table-scroll"><table className="app-table"><thead><tr><th>Plan</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead><tbody>
+            {orders.map((order) => <tr key={order.id}><td><strong>{plans[order.plan as PlanId]?.name ?? order.plan}</strong></td><td>€{((order.amount_cents ?? 0) / 100).toFixed(2)}</td><td>{dateLabel(order.created_at)}</td><td>{order.status}</td></tr>)}
+          </tbody></table></div>}
     </section>
     <section className="attention-banner"><div className="attention-icon"><ShieldCheck size={22} /></div><div><strong>Secure payment flow</strong><p>No card data touches PhishSafe. Stripe hosts checkout and returns the customer to this dashboard.</p></div></section>
   </div>

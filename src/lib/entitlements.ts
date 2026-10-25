@@ -43,6 +43,13 @@ function startOfCurrentUtcMonth(): string {
 
 const MONTHLY_RANK: EntitlementPlan[] = ['starter', 'growth', 'enterprise']
 
+// True when the service-role admin client is available. Lets the billing page
+// distinguish a misconfigured server (NO_PLAN because admin is null) from a user
+// who genuinely has no plan.
+export function isBillingConfigured(): boolean {
+  return createAdminClient() !== null
+}
+
 export async function getEntitlement(userId: string): Promise<Entitlement> {
   const admin = createAdminClient()
   if (!admin) return NO_PLAN
