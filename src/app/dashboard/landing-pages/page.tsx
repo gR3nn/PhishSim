@@ -16,6 +16,6 @@ export default async function LandingPagesPage() {
         .select('*')
         .order('created_at', { ascending: false })
 
-    const items = (pages || []).map((page) => ({ id: page.id, title: page.name, subtitle: `/l/${page.url_slug}`, meta: `Created ${new Date(page.created_at).toLocaleDateString()}`, href: `/l/${page.url_slug}` }))
-    return <ResourceLibrary kind="page" items={items} createHref="/dashboard/landing-pages/create" createLabel="New landing page" createSlot={<CreateResourceDialog kind="landing" createHref="/dashboard/landing-pages/create" label="New landing page" />} />
+    const items = (pages || []).map((page) => ({ id: page.id, title: page.name, subtitle: `/l/${page.url_slug}`, meta: `Created ${new Date(page.created_at).toLocaleDateString()}`, href: `/dashboard/landing-pages/${page.id}` }))
+    return <ResourceLibrary kind="page" items={items} createHref="/dashboard/landing-pages/create" createLabel="New Landing Page" createSlot={<CreateResourceDialog kind="landing" createHref="/dashboard/landing-pages/create" label="New Landing Page" />} />
 }
