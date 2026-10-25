@@ -415,6 +415,92 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .create-modal-actions .button { flex:1; }
 .dark .create-modal-close:hover { border-color:#3a4a60; }
 
+/* Phase 2 — motion layer */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes skeleton-shimmer { from { background-position: -150% 0; } to { background-position: 250% 0; } }
+
+.fade-in { animation: fade-in .2s ease both; }
+.fade-in-up { animation: fade-in-up .26s ease both; }
+.editor-fade { animation: fade-in .18s ease both; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Soft fade-and-rise on mount for page sections and marketing blocks */
+  .content-page > section,
+  .content-page > .data-panel,
+  .marketing-section,
+  .marketing-hero,
+  .public-page-hero { animation: fade-in-up .3s ease both; }
+  .content-page > *:nth-child(1) { animation-delay: 0ms; }
+  .content-page > *:nth-child(2) { animation-delay: 60ms; }
+  .content-page > *:nth-child(3) { animation-delay: 120ms; }
+  .content-page > *:nth-child(4) { animation-delay: 180ms; }
+  .content-page > *:nth-child(n+5) { animation-delay: 220ms; }
+
+  /* Card grids and table/list rows stagger in gently (capped so long lists stay snappy) */
+  .resource-grid > * { animation: fade-in-up .28s ease both; }
+  .resource-grid > *:nth-child(2) { animation-delay: 40ms; }
+  .resource-grid > *:nth-child(3) { animation-delay: 80ms; }
+  .resource-grid > *:nth-child(4) { animation-delay: 120ms; }
+  .resource-grid > *:nth-child(5) { animation-delay: 160ms; }
+  .resource-grid > *:nth-child(n+6) { animation-delay: 200ms; }
+
+  .app-table tbody tr { animation: fade-in .3s ease both; }
+  .app-table tbody tr:nth-child(2) { animation-delay: 35ms; }
+  .app-table tbody tr:nth-child(3) { animation-delay: 70ms; }
+  .app-table tbody tr:nth-child(4) { animation-delay: 105ms; }
+  .app-table tbody tr:nth-child(5) { animation-delay: 140ms; }
+  .app-table tbody tr:nth-child(6) { animation-delay: 175ms; }
+  .app-table tbody tr:nth-child(7) { animation-delay: 210ms; }
+  .app-table tbody tr:nth-child(n+8) { animation-delay: 240ms; }
+
+  .campaign-list .campaign-row { animation: fade-in .28s ease both; }
+  .campaign-list .campaign-row:nth-child(2) { animation-delay: 45ms; }
+  .campaign-list .campaign-row:nth-child(3) { animation-delay: 90ms; }
+  .campaign-list .campaign-row:nth-child(4) { animation-delay: 135ms; }
+  .campaign-list .campaign-row:nth-child(n+5) { animation-delay: 170ms; }
+
+  /* Modal panel pops in gently; backdrop simply fades */
+  .create-modal-backdrop { animation: fade-in .18s ease; }
+  .create-modal { animation: pop-in .2s ease; }
+}
+
+/* Skeleton loading blocks (shimmer) */
+.skeleton { position: relative; border-radius: 8px; background: linear-gradient(100deg, var(--line) 20%, var(--surface) 42%, var(--line) 64%); background-size: 220% 100%; }
+@media (prefers-reduced-motion: no-preference) { .skeleton { animation: skeleton-shimmer 1.3s ease-in-out infinite; } }
+.skeleton-line { height: 12px; }
+.skeleton-line.lg { height: 30px; }
+.skeleton-line.sm { height: 9px; }
+.skeleton-card { min-height: 138px; border-radius: 13px; }
+.skeleton-row { height: 44px; border-radius: 9px; }
+.skeleton-stack { display: flex; flex-direction: column; gap: 12px; }
+.dark .skeleton { background: linear-gradient(100deg, #1a2433 20%, #243041 42%, #1a2433 64%); background-size: 220% 100%; }
+
+/* Centered padded container for error/404/loading states */
+.center-pad { min-height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 20px; gap: 6px; }
+.center-pad .state-icon { width: 54px; height: 54px; display: grid; place-items: center; color: #167c57; background: #e9faf3; border-radius: 15px; margin-bottom: 8px; }
+.center-pad .state-icon.alert { color: #b42318; background: #fff0ee; }
+.center-pad h1 { font-size: clamp(30px, 5vw, 48px); letter-spacing: -1.5px; margin: 0; }
+.center-pad h3 { font-size: 17px; margin: 0; }
+.center-pad p { color: var(--subtle); font-size: 12px; line-height: 1.6; max-width: 420px; margin: 4px 0 12px; }
+.center-pad .state-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.dark .center-pad .state-icon { background: #122a22; }
+.dark .center-pad .state-icon.alert { background: #2a1616; }
+
+/* Source-code block for detail pages (read-only HTML source) */
+.code-block { margin: 0; max-height: 420px; overflow: auto; padding: 18px 20px; color: #cbeede; background: #111827; border-radius: 0; font-family: var(--font-geist-mono), monospace; font-size: 11px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+
+/* Honor reduced-motion: disable decorative animation/transition */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @media (max-width: 1050px) {
   .stat-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
   .overview-grid { grid-template-columns: 1fr; }

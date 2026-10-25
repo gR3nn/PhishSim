@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { Pencil, Mail, MailOpen, MousePointerClick, ShieldAlert } from 'lucide-react'
 import { deleteCampaign } from '../actions'
 
 type Campaign = {
@@ -26,8 +27,7 @@ type Event = {
 type Target = {
     id: string
     email: string
-    first_name?: string
-    last_name?: string
+    name?: string
 }
 
 type CampaignDetailsProps = {
@@ -36,9 +36,17 @@ type CampaignDetailsProps = {
     targets: Target[]
 }
 
+const statusBadgeClass: Record<string, string> = {
+    Sent: 'sent',
+    Opened: 'pending',
+    Clicked: 'pending_approval',
+    Compromised: 'rejected',
+}
+
 export default function CampaignDetailsClient({ campaign, initialEvents, targets }: CampaignDetailsProps) {
     const [events, setEvents] = useState<Event[]>(initialEvents)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [deleteError, setDeleteError] = useState('')
     const supabase = createClient()
 
     useEffect(() => {
@@ -69,11 +77,12 @@ export default function CampaignDetailsClient({ campaign, initialEvents, targets
         }
 
         setIsDeleting(true)
+        setDeleteError('')
         try {
             await deleteCampaign(campaign.id)
         } catch (error) {
             console.error('Failed to delete campaign:', error)
-            alert('Failed to delete campaign')
+            setDeleteError('Failed to delete campaign. Please try again.')
             setIsDeleting(false)
         }
     }
@@ -90,117 +99,153 @@ export default function CampaignDetailsClient({ campaign, initialEvents, targets
     const targetStatus = targets.map(target => {
         const targetEvents = events.filter(e => e.target_email === target.email)
         let status = 'Pending'
-        let statusColor = 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
 
         if (targetEvents.some(e => e.event_type === 'compromised')) {
             status = 'Compromised'
-            statusColor = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
         } else if (targetEvents.some(e => e.event_type === 'clicked')) {
             status = 'Clicked'
-            statusColor = 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
         } else if (targetEvents.some(e => e.event_type === 'opened')) {
             status = 'Opened'
-            statusColor = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
         } else if (targetEvents.some(e => e.event_type === 'sent')) {
             status = 'Sent'
-            statusColor = 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
         }
 
-        return { ...target, status, statusColor }
+        return { ...target, status }
     })
 
+    const canEdit = campaign.status === 'pending_approval' || campaign.status === 'draft'
+
     return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-center">
+        <div className="content-page">
+            <section className="page-heading">
                 <div>
-                    <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-2 inline-block">
-                        ← Back to Dashboard
-                    </Link>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{campaign.title}</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Launched on {new Date(campaign.created_at).toLocaleDateString()} • {campaign.status}
+                    <p className="eyebrow">Campaigns</p>
+                    <h1>{campaign.title}</h1>
+                    <p>
+                        Launched {new Date(campaign.created_at).toLocaleDateString()} ·{' '}
+                        <span className={`status-badge ${campaign.status}`}>{campaign.status.replace('_', ' ')}</span>
                     </p>
+                    {deleteError && <div className="auth-message error fade-in" style={{ marginTop: 12 }}>{deleteError}</div>}
                 </div>
-                <div className="flex items-center gap-3">
-                    {(campaign.status === 'pending_approval' || campaign.status === 'draft') && (
-                        <Link
-                            href={`/dashboard/campaigns/${campaign.id}/edit`}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
-                        >
+                <div className="studio-actions">
+                    {canEdit && (
+                        <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="button secondary">
+                            <Pencil size={14} />
                             Edit campaign
                         </Link>
                     )}
-                    <button
-                        onClick={handleDelete}
-                        disabled={isDeleting}
-                        className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors text-sm"
-                    >
-                        {isDeleting ? 'Deleting...' : 'Delete Campaign'}
+                    <button type="button" className="button danger" onClick={handleDelete} disabled={isDeleting}>
+                        {isDeleting ? 'Deleting…' : 'Delete campaign'}
                     </button>
                 </div>
-            </div>
+            </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard title="Sent" value={stats.sent} color="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" />
-                <StatCard title="Opened" value={stats.opened} color="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" />
-                <StatCard title="Clicked" value={stats.clicked} color="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300" />
-                <StatCard title="Compromised" value={stats.compromised} color="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" />
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-                <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Target Status</h3>
+            <section className="stat-grid">
+                <div className="stat-card blue">
+                    <div className="stat-top">
+                        <span>Sent</span>
+                        <div><Mail size={16} /></div>
+                    </div>
+                    <strong>{stats.sent}</strong>
+                    <small>Simulated emails delivered</small>
                 </div>
-                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {targetStatus.map((target) => (
-                        <li key={target.id} className="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                                    {target.email}
-                                </div>
-                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${target.statusColor}`}>
-                                    {target.status}
-                                </span>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+                <div className="stat-card amber">
+                    <div className="stat-top">
+                        <span>Opened</span>
+                        <div><MailOpen size={16} /></div>
+                    </div>
+                    <strong>{stats.opened}</strong>
+                    <small>Recipients who opened</small>
+                </div>
+                <div className="stat-card violet">
+                    <div className="stat-top">
+                        <span>Clicked</span>
+                        <div><MousePointerClick size={16} /></div>
+                    </div>
+                    <strong>{stats.clicked}</strong>
+                    <small>Followed the simulated link</small>
+                </div>
+                <div className="stat-card rose">
+                    <div className="stat-top">
+                        <span>Compromised</span>
+                        <div><ShieldAlert size={16} /></div>
+                    </div>
+                    <strong>{stats.compromised}</strong>
+                    <small>Submitted on the awareness page</small>
+                </div>
+            </section>
+
+            <div className="data-panel">
+                <div className="data-panel-head">
+                    <div>
+                        <h2>Target status</h2>
+                        <p>Where each recipient stands in this simulation.</p>
+                    </div>
+                </div>
+                <div className="table-scroll">
+                    <table className="app-table">
+                        <thead>
+                            <tr>
+                                <th>Recipient</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {targetStatus.map((target) => (
+                                <tr key={target.id}>
+                                    <td><strong>{target.email}</strong></td>
+                                    <td>
+                                        <span className={`status-badge ${statusBadgeClass[target.status] ?? ''}`}>
+                                            {target.status}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                            {targetStatus.length === 0 && (
+                                <tr>
+                                    <td colSpan={2} className="muted">No recipients in this campaign.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-                <div className="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Event Log</h3>
+            <div className="data-panel">
+                <div className="data-panel-head">
+                    <div>
+                        <h2>Event log</h2>
+                        <p>{events.length} recorded event{events.length === 1 ? '' : 's'}, newest first.</p>
+                    </div>
                 </div>
-                <div className="flow-root">
-                    <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                        {events.map((event) => (
-                            <li key={event.id} className="px-4 py-4 sm:px-6 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="font-medium text-gray-900 dark:text-white">
-                                        {event.target_email}
-                                    </span>
-                                    <span className="text-gray-500 dark:text-gray-400">
-                                        {new Date(event.created_at).toLocaleString()}
-                                    </span>
-                                </div>
-                                <div className="mt-1 text-gray-500 dark:text-gray-400">
-                                    Event: <span className="font-semibold">{event.event_type}</span>
-                                    {event.ip_address && ` • IP: ${event.ip_address}`}
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+                <div className="table-scroll">
+                    <table className="app-table">
+                        <thead>
+                            <tr>
+                                <th>Recipient</th>
+                                <th>Event</th>
+                                <th>IP address</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {events.map((event) => (
+                                <tr key={event.id}>
+                                    <td><strong>{event.target_email}</strong></td>
+                                    <td style={{ textTransform: 'capitalize' }}>{event.event_type}</td>
+                                    <td className="muted">{event.ip_address || '—'}</td>
+                                    <td className="muted">{new Date(event.created_at).toLocaleString()}</td>
+                                </tr>
+                            ))}
+                            {events.length === 0 && (
+                                <tr>
+                                    <td colSpan={4} className="muted">No events recorded yet.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
-    )
-}
-
-function StatCard({ title, value, color }: { title: string; value: number; color: string }) {
-    return (
-        <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 ${color} transition-colors`}>
-            <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase">{title}</h3>
-            <p className="text-3xl font-bold mt-2 text-gray-900 dark:text-white">{value}</p>
         </div>
     )
 }

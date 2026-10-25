@@ -35,12 +35,10 @@ export default async function CampaignDetailsPage({
         .eq('group_id', campaign.group_id)
 
     return (
-        <div className="p-8">
-            <CampaignDetailsClient
-                campaign={campaign}
-                initialEvents={events || []}
-                targets={targets || []}
-            />
-        </div>
+        <CampaignDetailsClient
+            campaign={campaign}
+            initialEvents={events || []}
+            targets={targets || []}
+        />
     )
 }

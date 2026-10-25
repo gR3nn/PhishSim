@@ -171,15 +171,19 @@ export default function AiHtmlEditor({
                 </div>
 
                 <textarea
+                    key={tab === 'code' ? 'code-pane' : 'code-hidden'}
                     name={textareaName}
                     value={html}
                     onChange={(event) => onHtmlChange(event.target.value)}
-                    className={tab === 'code' ? 'studio-code' : 'hidden'}
+                    className={tab === 'code' ? 'studio-code editor-fade' : 'hidden'}
                     spellCheck={false}
                     required={textareaRequired}
                 />
 
-                <div className={tab === 'preview' ? 'studio-preview' : 'hidden'}>
+                <div
+                    key={tab === 'preview' ? 'preview-pane' : 'preview-hidden'}
+                    className={tab === 'preview' ? 'studio-preview editor-fade' : 'hidden'}
+                >
                     <iframe title="Preview" srcDoc={html} sandbox="" />
                 </div>
             </section>
