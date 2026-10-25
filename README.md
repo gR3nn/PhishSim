@@ -68,6 +68,8 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
 
     # Stripe test-mode secret key
     STRIPE_SECRET_KEY=sk_test_...
+    # Stripe webhook signing secret — required for the /api/webhooks/stripe route to verify signatures
+    STRIPE_WEBHOOK_SECRET=whsec_...
 
     # AI provider — Alibaba Cloud Model Studio (powers landing-page and email-template generation)
     DASHSCOPE_API_KEY=
@@ -87,14 +89,32 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
     > The AI provider is optional. If the key is missing, the Generate action returns a friendly "not configured" error and the rest of the app works normally.
 
 4.  **Database Setup:**
-    For a new database, run `supabase/schema.sql`, then run `supabase/migrations/20261021_roles_approvals_billing.sql` in the Supabase SQL editor. Existing projects only need the migration.
+    The app cannot run DDL, so apply the schema and every migration **manually** in the Supabase SQL editor, in this order:
+
+    1.  `supabase/schema.sql` — base tables (new database only).
+    2.  `supabase/migrations/20261021_roles_approvals_billing.sql` — roles, approval workflow, billing.
+    3.  `supabase/migrations/20261101_orders_entitlements.sql` — orders + entitlement columns.
+    4.  `supabase/migrations/20261115_billing_customer.sql` — adds the nullable `stripe_customer_id` column to `orders`.
+
+    An existing project only needs the migrations it has not yet run, applied in order. The core tables are:
+
     -   `campaigns`
     -   `email_templates`
     -   `groups`
     -   `targets`
     -   `events`
     -   `landing_pages`
-    -   `orders`
+    -   `orders` — columns after all migrations: `id`, `user_id`, `stripe_session_id` (unique), `plan` (CHECK `single` | `starter` | `growth` | `enterprise` — note the `single` one-time plan is now included), `amount_cents`, `currency`, `status` (CHECK `pending` | `paid` | `cancelled` | `refunded`), `created_at`, `billing_type`, `period_start`, `credit_consumed`, `stripe_customer_id`.
+
+    ### Set up the Stripe webhook
+
+    The checkout success page records an order when the buyer returns from Stripe, but the browser may never come back. To record orders reliably, add a webhook in the Stripe dashboard:
+
+    1.  Create an endpoint pointing at `{NEXT_PUBLIC_APP_URL}/api/webhooks/stripe`.
+    2.  Subscribe it to `checkout.session.completed`, `customer.subscription.deleted`, `customer.subscription.updated`, and `invoice.paid`.
+    3.  Copy the endpoint's signing secret into `STRIPE_WEBHOOK_SECRET`.
+
+    Without the webhook, orders are only recorded when the buyer returns to the success page.
 
 5.  **Run the development server on port 3000:**
     ```bash

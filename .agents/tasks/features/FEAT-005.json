@@ -1,0 +1,26 @@
+{
+  "id": "FEAT-005",
+  "type": "docs",
+  "description": "Docs / migration hygiene. Fix the stale README Database Setup section so it lists every migration in order (including the new stripe_customer_id migration from FEAT-004), corrects the orders column list, documents the new STRIPE_WEBHOOK_SECRET env var, and adds a short 'set up the Stripe webhook' note pointing at /api/webhooks/stripe. Depends on FEAT-004 because it documents that feature's new migration, env var, and webhook endpoint. Do NOT touch the real .env file.",
+  "status": "completed",
+  "steps": [
+    "In README.md rewrite the step-4 'Database Setup' section to list migrations to run IN ORDER in the Supabase SQL editor: 1) supabase/schema.sql (new DB), 2) 20261021_roles_approvals_billing.sql, 3) 20261101_orders_entitlements.sql, 4) the NEW 20261115_billing_customer.sql — note the app cannot run DDL so these are manual.",
+    "Correct the orders column list in the README to reflect reality after all migrations: id, user_id, stripe_session_id (unique), plan (CHECK single|starter|growth|enterprise), amount_cents, currency, status (pending|paid|cancelled|refunded), created_at, billing_type, period_start, credit_consumed, stripe_customer_id. Note the plan CHECK now includes 'single'.",
+    "Add STRIPE_WEBHOOK_SECRET to the .env.local example block in the README (value `whsec_...`) with a one-line comment that it is required for the webhook route to verify signatures.",
+    "Add a short 'Set up the Stripe webhook' subsection: in the Stripe dashboard add an endpoint pointing at {APP_URL}/api/webhooks/stripe, subscribe to checkout.session.completed, customer.subscription.deleted, customer.subscription.updated, and invoice.paid, and copy the signing secret into STRIPE_WEBHOOK_SECRET. Mention that without the webhook, orders are only recorded when the buyer returns to the success page.",
+    "Do NOT modify the real .env file — only the README example block."
+  ],
+  "acceptance_criteria": [
+    "README Database Setup lists all four migrations in the correct order and labels them manual.",
+    "The README orders column list matches the post-migration schema and notes the 'single' plan.",
+    "STRIPE_WEBHOOK_SECRET appears in the README env block with a note.",
+    "A 'set up the Stripe webhook' note documents the /api/webhooks/stripe endpoint and the subscribed event types.",
+    "npm run build still succeeds (docs-only change)."
+  ],
+  "verification": [
+    "Run `npm run build` — must still succeed (sanity; docs-only).",
+    "Manually confirm the README lists 20261115_billing_customer.sql, STRIPE_WEBHOOK_SECRET, and the /api/webhooks/stripe setup note, and that the real .env file was not changed."
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
