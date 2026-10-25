@@ -53,6 +53,58 @@ export async function launchCampaign(formData: FormData) {
     redirect(`/dashboard/campaigns/${campaign.id}`)
 }
 
+export async function updateCampaign(formData: FormData) {
+    const id = formData.get('id') as string
+    const title = formData.get('title') as string
+    const templateId = formData.get('templateId') as string
+    const groupId = formData.get('groupId') as string
+    const landingPageUrl = formData.get('landingPageUrl') as string
+
+    if (!id || !title || !templateId || !groupId || !landingPageUrl) {
+        throw new Error('All fields are required')
+    }
+
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        throw new Error('Unauthorized')
+    }
+
+    const { data: campaign } = await supabase
+        .from('campaigns')
+        .select('id, status')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+    if (!campaign) {
+        throw new Error('Campaign not found')
+    }
+
+    if (campaign.status !== 'pending_approval' && campaign.status !== 'draft') {
+        throw new Error('This campaign can no longer be edited because it has already been sent or rejected.')
+    }
+
+    const { error } = await supabase
+        .from('campaigns')
+        .update({
+            title,
+            template_id: templateId,
+            group_id: groupId,
+            landing_page_url: landingPageUrl,
+        })
+        .eq('id', id)
+        .eq('user_id', user.id)
+
+    if (error) {
+        console.error('Error updating campaign:', error)
+        throw new Error('Failed to update campaign')
+    }
+
+    redirect(`/dashboard/campaigns/${id}`)
+}
+
 export async function approveCampaign(campaignId: string) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

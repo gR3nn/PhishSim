@@ -121,13 +121,23 @@ export default function CampaignDetailsClient({ campaign, initialEvents, targets
                         Launched on {new Date(campaign.created_at).toLocaleDateString()} • {campaign.status}
                     </p>
                 </div>
-                <button
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                    className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors text-sm"
-                >
-                    {isDeleting ? 'Deleting...' : 'Delete Campaign'}
-                </button>
+                <div className="flex items-center gap-3">
+                    {(campaign.status === 'pending_approval' || campaign.status === 'draft') && (
+                        <Link
+                            href={`/dashboard/campaigns/${campaign.id}/edit`}
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
+                        >
+                            Edit campaign
+                        </Link>
+                    )}
+                    <button
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                        className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors text-sm"
+                    >
+                        {isDeleting ? 'Deleting...' : 'Delete Campaign'}
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
