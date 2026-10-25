@@ -3,6 +3,22 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
+function parseTargets(targetsText: string): { email: string; name: string }[] {
+    const trimmed = targetsText.trim()
+    if (!trimmed.endsWith(';')) throw new Error('Every recipient entry must end with a semicolon (;)')
+    const entries = trimmed.split(';').map((entry) => entry.trim()).filter(Boolean)
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const seen = new Set<string>()
+    return entries.map((entry) => {
+        const [rawEmail, ...nameParts] = entry.split(',')
+        const email = rawEmail.trim().toLowerCase()
+        if (!emailPattern.test(email)) throw new Error(`Invalid email address: ${rawEmail.trim()}`)
+        if (seen.has(email)) throw new Error(`Duplicate email address: ${email}`)
+        seen.add(email)
+        return { email, name: nameParts.join(',').trim() }
+    })
+}
+
 export async function createGroup(formData: FormData) {
     const name = formData.get('name') as string
     const targetsText = String(formData.get('targetsText') || '')
@@ -11,18 +27,7 @@ export async function createGroup(formData: FormData) {
         throw new Error('A name and at least one recipient are required')
     }
 
-    if (!targetsText.trim().endsWith(';')) throw new Error('Every recipient entry must end with a semicolon (;)')
-    const entries = targetsText.split(';').map((entry) => entry.trim()).filter(Boolean)
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    const seen = new Set<string>()
-    const parsedTargets = entries.map((entry) => {
-        const [rawEmail, ...nameParts] = entry.split(',')
-        const email = rawEmail.trim().toLowerCase()
-        if (!emailPattern.test(email)) throw new Error(`Invalid email address: ${rawEmail.trim()}`)
-        if (seen.has(email)) throw new Error(`Duplicate email address: ${email}`)
-        seen.add(email)
-        return { email, name: nameParts.join(',').trim() }
-    })
+    const parsedTargets = parseTargets(targetsText)
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -61,9 +66,13 @@ export async function deleteGroup(groupId: string) {
 export async function updateGroup(formData: FormData) {
     const id = formData.get('id') as string
     const name = formData.get('name') as string
+    const targetsText = String(formData.get('targetsText') || '')
 
     if (!id || !name) {
         throw new Error('ID and Name are required')
+    }
+    if (!targetsText.trim()) {
+        throw new Error('A name and at least one recipient are required')
     }
 
     const supabase = await createClient()
@@ -73,16 +82,49 @@ export async function updateGroup(formData: FormData) {
         throw new Error('Unauthorized')
     }
 
-    const { error } = await supabase
+    const { data: group, error: ownershipError } = await supabase
+        .from('groups')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+    if (ownershipError || !group) {
+        throw new Error('Group not found')
+    }
+
+    const parsedTargets = parseTargets(targetsText)
+
+    const { error: nameError } = await supabase
         .from('groups')
         .update({ name })
         .eq('id', id)
         .eq('user_id', user.id)
 
-    if (error) {
-        console.error('Error updating group:', error)
+    if (nameError) {
+        console.error('Error updating group:', nameError)
         throw new Error('Failed to update group')
     }
 
-    redirect('/dashboard/groups')
+    const { error: deleteError } = await supabase
+        .from('targets')
+        .delete()
+        .eq('group_id', id)
+
+    if (deleteError) {
+        console.error('Error clearing targets:', deleteError)
+        throw new Error('Failed to update recipients')
+    }
+
+    if (parsedTargets.length > 0) {
+        const targets = parsedTargets.map((target) => ({ ...target, group_id: id }))
+        const { error: insertError } = await supabase.from('targets').insert(targets)
+
+        if (insertError) {
+            console.error('Error inserting targets:', insertError)
+            throw new Error('Failed to update recipients')
+        }
+    }
+
+    redirect(`/dashboard/groups/${id}`)
 }
