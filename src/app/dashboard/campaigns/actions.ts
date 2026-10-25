@@ -137,7 +137,7 @@ export async function approveCampaign(campaignId: string) {
 
     for (const target of targets) {
         const trackingPath = `/${encodeURIComponent(campaign.title)}/${encodeURIComponent(group!.name)}/${slug}`
-        const trackingLink = `${baseUrl}${trackingPath}?t=${encodeURIComponent(target.email)}`
+        const trackingLink = `${baseUrl}${trackingPath}?t=${encodeURIComponent(target.email)}&c=${campaign.id}`
         const pixelLink = `${baseUrl}/api/track/${campaign.id}/${encodeURIComponent(target.email)}/pixel`
         let htmlBody = template.body_html.replace(/{{link}}/g, trackingLink)
         htmlBody += `<img src="${pixelLink}" alt="" width="1" height="1" style="display:none;" />`
@@ -178,9 +178,7 @@ export async function deleteCampaign(campaignId: string) {
         throw new Error('Unauthorized')
     }
 
-    // Delete campaign (cascade should handle events, but let's be safe)
-    // Assuming foreign keys are set to cascade delete. If not, we'd need to delete events first.
-    // For this prototype, we'll assume cascade or just delete campaign.
+    // events rows cascade-delete via the events.campaign_id FK (on delete cascade in schema.sql)
     const { error } = await supabase
         .from('campaigns')
         .delete()

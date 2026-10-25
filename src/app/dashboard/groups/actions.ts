@@ -54,7 +54,17 @@ export async function createGroup(formData: FormData) {
 
 export async function deleteGroup(groupId: string) {
     const supabase = await createClient()
-    const { error } = await supabase.from('groups').delete().eq('id', groupId)
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        throw new Error('Unauthorized')
+    }
+
+    const { error } = await supabase
+        .from('groups')
+        .delete()
+        .eq('id', groupId)
+        .eq('user_id', user.id)
 
     if (error) {
         throw new Error('Failed to delete group')

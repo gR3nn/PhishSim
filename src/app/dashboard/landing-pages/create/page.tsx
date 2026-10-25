@@ -25,7 +25,7 @@ function readHandoff(): string | null {
 const starterHtml = `<div style="min-height:100vh;padding:60px 20px;background:#f3f6f8;font-family:Arial,sans-serif;color:#101828;box-sizing:border-box">
   <main style="max-width:640px;margin:auto;padding:44px;background:white;border-radius:20px;box-shadow:0 20px 55px #10182820">
     <div style="width:52px;height:52px;display:grid;place-items:center;border-radius:15px;background:#dff9ee;color:#16805a;font-size:24px">✓</div>
-    <p style="margin-top:28px;color:#16805a;font-weight:bold;text-transform:uppercase;font-size:12px;letter-spacing:1px">PhishSafe learning moment</p>
+    <p style="margin-top:28px;color:#16805a;font-weight:bold;text-transform:uppercase;font-size:12px;letter-spacing:1px">PhishSafe security simulation</p>
     <h1 style="font-size:38px;line-height:1.1">This was a safe simulation.</h1>
     <p style="color:#667085;line-height:1.7">Pause, inspect the sender and verify unexpected requests through a trusted channel.</p>
     <div style="margin-top:24px;padding:16px;background:#effbf6;border-radius:10px;color:#176347">No passwords or private information were stored.</div>

@@ -38,7 +38,17 @@ export async function createTemplate(formData: FormData) {
 
 export async function deleteTemplate(templateId: string) {
     const supabase = await createClient()
-    const { error } = await supabase.from('email_templates').delete().eq('id', templateId)
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+        throw new Error('Unauthorized')
+    }
+
+    const { error } = await supabase
+        .from('email_templates')
+        .delete()
+        .eq('id', templateId)
+        .eq('user_id', user.id)
 
     if (error) {
         throw new Error('Failed to delete template')

@@ -74,7 +74,7 @@ export default function DashboardClient({ initialStats, campaigns, role, dailyAc
         <section className="stat-grid">
             <StatCard label="Emails delivered" value={stats.sent} meta={`${stats.sent} total delivery events`} tooltip="Number of approved simulation emails delivered to your audiences." icon={Send} tone="blue" active={metric === 'sent'} onSelect={() => setMetric('sent')} />
             <StatCard label="Open rate" value={`${rates.opened}%`} meta={`${stats.opened} unique opens`} tooltip="The percentage of delivered simulation emails that were opened." icon={Eye} tone="violet" active={metric === 'opened'} onSelect={() => setMetric('opened')} />
-            <StatCard label="Click rate" value={`${rates.clicked}%`} meta={`${stats.clicked} learning moments`} tooltip="The percentage of recipients who clicked a simulation link." icon={MousePointerClick} tone="amber" active={metric === 'clicked'} onSelect={() => setMetric('clicked')} />
+            <StatCard label="Click rate" value={`${rates.clicked}%`} meta={`${stats.clicked} link clicks`} tooltip="The percentage of recipients who clicked a simulation link." icon={MousePointerClick} tone="amber" active={metric === 'clicked'} onSelect={() => setMetric('clicked')} />
             <StatCard label="Risk events" value={stats.compromised} meta={`${rates.compromised}% of delivered`} tooltip="Simulated form submissions. PhishSafe never stores submitted passwords." icon={ShieldAlert} tone="rose" active={metric === 'compromised'} onSelect={() => setMetric('compromised')} />
         </section>
 

@@ -73,7 +73,7 @@ export default async function CreateCampaignPage() {
                     <small>Only workspace members and administrators can see this name.</small>
                 </div></div></section>
 
-                <section className="form-section"><h2>Training scenario</h2><p>Connect a message, authorized audience, and educational landing page.</p><div className="form-grid"><div className="field">
+                <section className="form-section"><h2>Training scenario</h2><p>Connect a message, recipient group, and educational landing page.</p><div className="form-grid"><div className="field">
                     <label htmlFor="templateId">Email template</label>
                     <select
                         name="templateId"
@@ -86,19 +86,19 @@ export default async function CreateCampaignPage() {
                         ))}
                     </select>
                 </div><div className="field">
-                    <label htmlFor="groupId">Authorized audience</label>
+                    <label htmlFor="groupId">Recipient group</label>
                     <select
                         name="groupId"
                         id="groupId"
                         required
                     >
-                        <option value="">Choose an audience</option>
+                        <option value="">Choose a group</option>
                         {groups?.map((g) => (
                             <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
                     </select>
                 </div><div className="field full">
-                    <label htmlFor="landingPageUrl">Learning landing page</label>
+                    <label htmlFor="landingPageUrl">Landing page</label>
                     <select
                         name="landingPageUrl"
                         id="landingPageUrl"
@@ -112,7 +112,7 @@ export default async function CreateCampaignPage() {
                 </div></div></section>
                 <div className="form-actions"><Link href="/dashboard" className="button secondary">Cancel</Link><SubmitButton label="Submit for approval" pendingLabel="Submitting request…" /></div>
             </form>
-            <aside className="approval-note"><span>01</span><div><strong>Prepare</strong><p>Select your training content and authorized employee audience.</p></div><span>02</span><div><strong>Admin review</strong><p>An administrator checks consent, scope, and safety.</p></div><span>03</span><div><strong>Deliver & learn</strong><p>Approved campaigns send and live results appear in analytics.</p></div></aside>
+            <aside className="approval-note"><span>01</span><div><strong>Prepare</strong><p>Select your training content and authorized recipient group.</p></div><span>02</span><div><strong>Admin review</strong><p>An administrator checks consent, scope, and safety.</p></div><span>03</span><div><strong>Deliver & learn</strong><p>Approved campaigns send and live results appear in analytics.</p></div></aside>
             </div>
         </div>
     )

@@ -12,6 +12,7 @@ export default async function LandingPage({
     const { campaignName, slug } = await params
     const resolvedSearchParams = await searchParams
     const targetEmail = resolvedSearchParams.t as string | undefined
+    const campaignIdParam = resolvedSearchParams.c as string | undefined
 
     // Initialize Supabase Admin Client
     const supabase = createClient(
@@ -19,19 +20,36 @@ export default async function LandingPage({
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // 1. Find Campaign by Name
+    // 1. Resolve the campaign.
+    // Prefer the stable campaign id carried on the link (`c`). Fall back to the
+    // legacy title lookup so links already sitting in inboxes keep working.
     const decodedCampaignName = decodeURIComponent(campaignName)
 
-    // We'll select the ID. If duplicate names exist, we take the most recent one.
-    const { data: campaigns, error: campaignError } = await supabase
-        .from('campaigns')
-        .select('id,user_id')
-        .eq('title', decodedCampaignName)
-        .order('created_at', { ascending: false })
-        .limit(1)
+    let campaignId: string | undefined
+    let campaignOwnerId: string | undefined
+    let campaignError: unknown = null
 
-    const campaignId = campaigns?.[0]?.id
-    const campaignOwnerId = campaigns?.[0]?.user_id
+    if (campaignIdParam) {
+        const { data: campaign, error } = await supabase
+            .from('campaigns')
+            .select('id,user_id')
+            .eq('id', campaignIdParam)
+            .maybeSingle()
+        campaignId = campaign?.id
+        campaignOwnerId = campaign?.user_id
+        campaignError = error
+    } else {
+        // Legacy fallback: resolve by title. If duplicate titles exist, take the most recent.
+        const { data: campaigns, error } = await supabase
+            .from('campaigns')
+            .select('id,user_id')
+            .eq('title', decodedCampaignName)
+            .order('created_at', { ascending: false })
+            .limit(1)
+        campaignId = campaigns?.[0]?.id
+        campaignOwnerId = campaigns?.[0]?.user_id
+        campaignError = error
+    }
 
     // Check for 'fake-login' special slug
     if (slug === 'fake-login') {
@@ -41,23 +59,16 @@ export default async function LandingPage({
             notFound()
         }
 
-        // Track the click/open here as well since we are intercepting the route
+        // Log a single 'clicked' event for this landing visit.
+        // 'opened' is logged exclusively by the tracking pixel route.
         if (campaignId && targetEmail) {
             const decodedEmail = decodeURIComponent(targetEmail)
-            await supabase.from('events').insert([
-                {
-                    campaign_id: campaignId,
-                    target_email: decodedEmail,
-                    event_type: 'clicked',
-                    user_agent: 'Landing Page Direct Visit'
-                },
-                {
-                    campaign_id: campaignId,
-                    target_email: decodedEmail,
-                    event_type: 'opened',
-                    user_agent: 'Landing Page Triggered'
-                }
-            ])
+            await supabase.from('events').insert({
+                campaign_id: campaignId,
+                target_email: decodedEmail,
+                event_type: 'clicked',
+                user_agent: 'Landing Page Direct Visit',
+            })
         }
 
         // Render the Fake Login Page
@@ -89,32 +100,17 @@ export default async function LandingPage({
         notFound()
     }
 
-    // 3. Track Events if target is identified
+    // 3. Track a single 'clicked' event if the target is identified.
+    // 'opened' is logged exclusively by the tracking pixel route, so we no longer
+    // double-insert an 'opened' here (that caused analytics to over-count).
     if (campaignId && targetEmail) {
         const decodedEmail = decodeURIComponent(targetEmail)
 
-        // We record 'clicked'
-        // We also record 'opened' just in case the pixel was blocked.
-        // It's safe to fire-and-forget these inserts to not block rendering too much, 
-        // but await is safer to ensure they happen.
-
-        // Insert 'clicked'
         const { error: clickError } = await supabase.from('events').insert({
             campaign_id: campaignId,
             target_email: decodedEmail,
             event_type: 'clicked',
-            user_agent: 'Landing Page Direct Visit', // We can't easily get headers in Server Component without headers() function, but that makes it dynamic.
-            // For sim plicity we leave UA generic or use headers() if strictly needed,
-            // but let's keep it simple for now.
-        })
-
-        // Insert 'opened' (only if we want to enforce it. Duplicate opened events are usually fine or deduped by analytics, 
-        // but here we just append logic).
-        await supabase.from('events').insert({
-            campaign_id: campaignId,
-            target_email: decodedEmail,
-            event_type: 'opened',
-            user_agent: 'Landing Page Triggered',
+            user_agent: 'Landing Page Direct Visit',
         })
 
         if (clickError) {

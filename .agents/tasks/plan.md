@@ -1,147 +1,141 @@
-# Implementation Plan — Phase 2 (Visual / UX Polish)
+# Phase 3 Implementation Plan — Correctness & Consistency Cleanup
 
-Presentation-only pass over the existing Next.js 16 + Supabase + Tailwind v4 app at `/home/gr3nn/Projects/PhishSim`. Work on `main`, no worktree. NO behavior/data/API changes. Phase 1 (CRUD + billing) is DONE — do not redo it.
+PhishSafe (Next.js 16 App Router + TypeScript + Supabase + Tailwind v4). Work on `main`, no worktree. Phases 1 (CRUD + billing) and 2 (visual polish + motion) are DONE — do not redo them. This phase implements Area 5 (correctness/bugs) and the P2 recommendations from `.agents/tasks/audit-findings.md`.
 
-## Context discovered during exploration (ground truth)
+## Design decisions recorded up front
 
-- **Build/verify commands** (from `package.json`): `npm run build` (Next build + typecheck), `npm run lint` (eslint). There is no test runner configured and no test files — verification is build + lint + Playwright screenshots. Dev server: `npm run dev` on port 3000.
-- **Design system** lives entirely in `src/app/globals.css` (~460 lines, single file). Semantic classes confirmed present: `.content-page`, `.page-heading` (+ `.eyebrow`, `h1`, trailing `p`), `.stat-grid`/`.stat-card` (color modifiers `.blue/.violet/.amber/.rose`, `.stat-top > div`, `> strong`, `> small`, `[data-tooltip]`), `.data-panel`/`.data-panel-head`/`.table-scroll`/`.app-table`, `.panel`, `.studio-actions`, `.studio-preview` (iframe), `.button`(`.primary/.secondary/.danger`), `.field`, `.auth-message`(`.error/.success`), `.empty-state`, `.status-badge` (+ `.sent/.approved/.pending_approval/.pending/.rejected`), `.form-card`/`.form-section`, `.muted`.
-- **Existing keyframes**: `menu-in` (dropdown/modal enter, `.16s ease`, used by `.notification-menu`, `.create-modal`, `.create-modal-backdrop`, `.marketing-mobile-menu`), `button-spin` (`.spin`), `bars-in` (dashboard chart). Existing `:active { transform: scale(.96) }` on `.button/.mini-button/.icon-button/.auth-submit/.google-button`. Hover lifts on `.stat-card`, `.resource-card`, buttons. `tw-animate-css@1.4.0` imported at `globals.css:2` but no `animate-*` utilities used yet.
-- **Dashboard content wrapper**: `DashboardShell` renders children inside `<main className="page-content">`. Reference semantic pages wrap their body in `<div className="content-page">` with each block as a `<section>` or `.data-panel`.
-- **Reference (already-semantic, DO NOT regress; mirror these):** `src/app/dashboard/landing-pages/[id]/page.tsx` (uses `.content-page` > `.page-heading` + `.studio-actions` with `.button secondary` links + `deleteLandingPage` via `SubmitButton confirmMessage`, then `.data-panel` > `.data-panel-head` + `.studio-preview` with `<iframe srcDoc sandbox="">`), `src/app/dashboard/templates/[id]/edit/page.tsx`, `src/app/dashboard/groups/[id]/edit/page.tsx` (ALREADY semantic — Phase 1).
-- **`SubmitButton`** (`src/components/submit-button.tsx`): `'use client'`, props `label`, `pendingLabel`, `className`, `title`, `confirmMessage` (uses `window.confirm`). Used inside a `<form action={serverAction.bind(null, id)}>` for designed delete controls — this is the established delete pattern (landing-page detail uses it).
-- **Server actions available (presentation surfaces only, do NOT alter logic):** `deleteCampaign(id)` in `campaigns/actions.ts` (has `.eq('user_id')`, redirects to `/dashboard`); `deleteTemplate(id)` in `templates/actions.ts` (redirects to `/dashboard/templates`).
-- **Four raw-Tailwind screens confirmed:** `campaigns/[id]/CampaignDetailsClient.tsx` (indigo/gray, `StatCard` with `border-l-4`), `templates/[id]/page.tsx` (indigo/gray), `groups/[id]/page.tsx` (indigo/gray). `groups/[id]/edit/page.tsx` is **already semantic** — verify-only, no rebuild.
-- **No `loading.tsx` / `error.tsx` / `not-found.tsx` exist anywhere** (confirmed by search).
-- **Detail pages already call `notFound()`** when a record is missing: campaign, template, group, landing-page detail all do. Group/landing/template-edit also filter by `user_id`. Campaign/template/group detail query without `user_id` but rely on RLS — leave as-is (behavior change out of scope).
-
-## MUST NOT CHANGE (state explicitly, honor throughout)
-
-- All safety framing / "credentials are NOT stored" text; admin-approval workflow; the `.env` file and every env var name.
-- All routes, server actions, DB column names, form field names, the `{{link}}` token.
-- Sandboxed preview iframes keep `sandbox=""`.
-- `src/app/fake-login/page.tsx` stays AS-IS (intentionally mimics Microsoft).
-- All Phase-1 functionality: realtime event subscription, stats math, delete actions, status display, AI editor behavior, `CreateResourceDialog` logic.
-- No new dependencies, no Framer Motion, no Tailwind-utility styling on rebuilt screens — semantic classes + CSS keyframes + `tw-animate-css` only.
+- **Tracking (item 3): canonical paths.** The pixel route `api/track/[campaignId]/[email]/pixel/route.ts` stays the SOLE logger of `opened`. The pretty public landing route `[campaignName]/[groupName]/[slug]/page.tsx` becomes the SOLE logger of `clicked` (one insert, not two). Campaign identity is carried on the emitted link as a new query param `c=<campaignId>` (stable UUID) added in `approveCampaign`; the landing page resolves the campaign by that id first and only falls back to the existing title lookup when `c` is absent — this keeps links already sitting in inboxes working. Rationale: the pretty path is the one actually substituted for `{{link}}` today, so extending it (rather than switching to `/r/`) is the smallest change that preserves the user-visible flow; an `id` query param is additive and backward-compatible, whereas restructuring the route params would break in-flight links.
+- **`/r/[campaignId]/[email]` route (item 3): remove it.** A code-wide search found zero references to `/r/` anywhere except the audit doc; `approveCampaign` never builds a `/r/` link. It is dead. Deleting it leaves exactly one canonical click path (the landing route). The fake-login special-case (slug `fake-login`) already lives in the landing route, so no capture wiring is lost.
+- **Event-logging contract (after this phase):**
+  - `sent` — inserted once per recipient by `approveCampaign` on delivery.
+  - `opened` — inserted by the pixel route only (`/api/track/<campaignId>/<email>/pixel`).
+  - `clicked` — inserted by the landing route only, once per visit that carries a target email.
+  - `compromised` — inserted by `fake-login/actions.ts` on form submit (unchanged).
+- **`is_signalsafe_admin` rename (item 4): do it via a new additive migration.** The function is referenced only in SQL (migration `20261021`), never in TS. A new migration creates `public.is_platform_admin()`, drops+recreates the one trigger function and all 9 admin policies to call it, then drops the old function. This is clean and does not regress RLS. New file only — existing migrations are not edited.
 
 ---
 
-## Part A — Motion layer + shared classes in globals.css (do FIRST; everything else consumes it)
+# Implementation Plan
 
-- [ ] 1. Add the reusable motion keyframes, classes, and a global reduced-motion guard to `src/app/globals.css`.
-      Append a new `/* Phase 2 — motion layer */` block near the end (before the first `@media` query). Define keyframes `fade-in` (`from{opacity:0} to{opacity:1}`), `fade-in-up` (`from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none}`), `pop-in` (modal panel: `from{opacity:0;transform:translateY(8px) scale(.98)} to{opacity:1;transform:none}`), `skeleton-shimmer` (`from{background-position:-150% 0} to{background-position:250% 0}`). Add classes: `.fade-in { animation: fade-in .2s ease both }`, `.fade-in-up { animation: fade-in-up .26s ease both }`. Add a stagger helper: scope `.content-page > section`, `.content-page > .data-panel`, and `.marketing-section`/marketing hero/feature blocks to `fade-in-up` with incremental `animation-delay` using `:nth-child` (e.g. 1→0ms, 2→60ms, 3→120ms, 4→180ms, cap ~5). Add `.resource-grid > *` and `.app-table tbody tr` / `.campaign-list .campaign-row` subtle `fade-in-up`/`fade-in` with small `:nth-child` stagger (cap the nth list so long tables don't delay excessively, e.g. delays only up to nth-child(8)). Wrap ALL mount animations in `@media (prefers-reduced-motion: no-preference) { ... }` so motion only applies when the user allows it. Add a defensive `@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }` override at the very end.
-      Also add a `.skeleton` utility (shimmer gradient block honoring `--line`/`--surface`, dark-mode via `.dark .skeleton`) and `.skeleton-row`/`.skeleton-card` sizing helpers for the loading screens, plus `.center-pad` (a simple padded flex-center container for error/404/loading spinner states) using existing tokens.
-      Files: `src/app/globals.css`
-      Verify: `npm run build` succeeds and `npm run lint` is clean; no raw CSS syntax errors. Visual confirmation deferred to the screenshot step (Part E).
+- [ ] 1. Add owner-scope filter to `deleteTemplate`.
+      In `deleteTemplate`, fetch the current user (mirror `updateTemplate`: `const { data: { user } } = await supabase.auth.getUser(); if (!user) throw new Error('Unauthorized')`) and add `.eq('user_id', user.id)` to the delete. Do NOT change the function signature (still `(templateId: string)`) or the `redirect('/dashboard/templates')`.
+      Files: `src/app/dashboard/templates/actions.ts`
+      Verify: `npm run lint` passes and `npm run build` compiles. Confirm by reading that the delete now chains `.eq('id', templateId).eq('user_id', user.id)` exactly like `updateTemplate`.
 
-- [ ] 2. Add modal enter polish and editor tab crossfade classes to `src/app/globals.css`.
-      The `.create-modal-backdrop`/`.create-modal` already animate via `menu-in`; upgrade only the panel: give `.create-modal` `animation: pop-in .2s ease` and keep `.create-modal-backdrop` on a backdrop `fade-in .18s ease` (replace its current `menu-in`). Add a `.studio-preview.fade-in`/tab-swap class: define `.editor-fade { animation: fade-in .18s ease both }` to be applied to the shown pane in `ai-html-editor.tsx` (step 12). Keep everything inside `@media (prefers-reduced-motion: no-preference)` where it is purely decorative. Do not alter modal open/close logic.
-      Files: `src/app/globals.css`
-      Verify: `npm run build` + `npm run lint` clean.
+- [ ] 2. Add owner-scope filter to `deleteGroup`.
+      In `deleteGroup`, fetch the current user (mirror `updateGroup`'s auth check), and add `.eq('user_id', user.id)` to the `groups` delete. Keep signature `(groupId: string)` and `redirect('/dashboard/groups')`. Targets still cascade via the `targets.group_id … on delete cascade` FK in `schema.sql`, so no explicit target delete is needed.
+      Files: `src/app/dashboard/groups/actions.ts`
+      Verify: `npm run build` compiles; `npm run lint` passes. Read-confirm the delete chains `.eq('id', groupId).eq('user_id', user.id)`.
 
----
+- [ ] 3. Remove the "assume cascade" prototype comment in `deleteCampaign`.
+      Delete the three prototype comment lines (~"Delete campaign (cascade should handle events…", "Assuming foreign keys…", "For this prototype, we'll assume cascade or just delete campaign."). Replace with a single accurate note, e.g. `// events rows cascade-delete via the events.campaign_id FK (on delete cascade in schema.sql)`. NO logic change — the existing `.eq('id', campaignId).eq('user_id', user.id)` delete and `redirect('/dashboard')` stay.
+      Files: `src/app/dashboard/campaigns/actions.ts`
+      Verify: `npm run build` compiles. Read-confirm no behavior lines changed, only comments.
 
-## Part B — Rebuild the four raw-Tailwind screens in the semantic system
+- [ ] 4. Emit the campaign id on tracking links in `approveCampaign`.
+      In `approveCampaign` (same file), add the stable campaign id to the generated link as a query param alongside the existing `t`. Change the `trackingLink` construction so the URL is `${baseUrl}${trackingPath}?t=${encodeURIComponent(target.email)}&c=${campaign.id}`. Keep everything else identical: the pretty `trackingPath` (`/${encodeURIComponent(campaign.title)}/${encodeURIComponent(group.name)}/${slug}`), the `{{link}}` substitution, the hidden pixel `<img>`, and the `/fake-login` slug handling. Do NOT touch the pixel link. This is the only change to the emitted email links; note in the commit message that links now include `&c=<id>`.
+      Files: `src/app/dashboard/campaigns/actions.ts`
+      Verify: `npm run build` compiles. Read-confirm the link string now ends with `&c=${campaign.id}` and `t=` is preserved.
 
-- [ ] 3. Rebuild `CampaignDetailsClient.tsx` in the semantic design system; preserve ALL behavior.
-      Keep `'use client'`, the realtime `supabase.channel(...).on('postgres_changes', INSERT events filter campaign_id)` subscription, the `stats` reduction, the `targetStatus` derivation, the `handleDelete` flow calling `deleteCampaign`, and the status display. Replace raw markup: root `<div className="content-page">`; header as `<section className="page-heading">` with `<p className="eyebrow">Campaigns</p>`, `<h1>{campaign.title}</h1>`, a sub `<p>` ("Launched {date} · {status}"), and a `.studio-actions` cluster — conditional Edit `<Link className="button secondary">` for `pending_approval`/`draft`, and the Delete as a `<button className="button danger">` calling `handleDelete`. **Replace `alert('Failed to delete campaign')` with a designed inline error**: add `const [deleteError, setDeleteError] = useState('')`, set it in the catch, and render `{deleteError && <div className="auth-message error">{deleteError}</div>}` in the header (fades in via the global `.auth-message` + add `fade-in`). Stats as `<div className="stat-grid">` of four `.stat-card` (map colors: Sent→`.blue`, Opened→`.amber`, Clicked→`.violet`, Compromised→`.rose`); each card `.stat-top` label + icon div, `<strong>{value}</strong>`, `<small>`. Target Status and Event Log as two `.data-panel` blocks: `.data-panel-head` with `<h2>` + count `<p>`, then `.table-scroll` > `.app-table` with proper `<thead>`/`<tbody>`; Target Status rows show email + a `.status-badge` (map Pending/Sent/Opened/Clicked/Compromised to badge modifier classes, defaulting to base badge for custom statuses); Event Log rows show target_email, event_type, IP, timestamp. Keep the empty-state handling (if no targets/events render a muted row or `.empty-state`). **Fix the misleading `Target` type**: change `{ id; email; first_name?; last_name? }` to `{ id: string; email: string; name?: string }` (matches the `targets` table; the component only reads `target.email`). Update `src/app/dashboard/campaigns/[id]/page.tsx` to wrap the client in `<div className="content-page">`? No — the client now renders `.content-page` itself, so change the page wrapper from `<div className="p-8">` to a plain fragment (`<>…</>`) to avoid double padding.
-      Files: `src/app/dashboard/campaigns/[id]/CampaignDetailsClient.tsx`, `src/app/dashboard/campaigns/[id]/page.tsx`
-      Verify: `npm run build` + `npm run lint` clean; grep the file to confirm NO `indigo-`/`bg-gray-`/`rounded-md` utilities remain and no `alert(` call remains; screenshot in Part E confirms realtime panel + stats render and Delete shows inline error on failure.
+- [ ] 5. Rewrite the public landing route to resolve by campaign id and log only `clicked`.
+      In `[campaignName]/[groupName]/[slug]/page.tsx`: (a) read a new `c` search param (`const campaignIdParam = resolvedSearchParams.c as string | undefined`). (b) Resolve the campaign by id first: if `campaignIdParam` present, `select('id,user_id').eq('id', campaignIdParam).maybeSingle()`; else fall back to the EXISTING title lookup (`.eq('title', decodedCampaignName).order('created_at',{ascending:false}).limit(1)`) for backward-compat with links already sent. Derive `campaignId`/`campaignOwnerId` from whichever resolved. (c) In the `slug === 'fake-login'` branch, replace the two-event insert array with a SINGLE `clicked` insert (drop the `opened` insert); keep the `notFound()` guard and the `FakeLoginPage` render with the same `fakeLoginParams` promise. (d) In the standard-landing branch keep the `landing_pages` lookup by `url_slug` + `campaignOwnerId` and the `dangerouslySetInnerHTML` render (preserve the XSS-by-design note); replace the clicked-then-opened double insert with a SINGLE `clicked` insert. Preserve `t=email` attribution and `notFound()` behavior. Do not change which landing page renders.
+      Files: `src/app/[campaignName]/[groupName]/[slug]/page.tsx`
+      Verify: `npm run build` compiles. Read-confirm: no `event_type: 'opened'` remains in this file; campaign resolved by `c` first with title fallback; `t` still used for `target_email`.
 
-- [ ] 4. Rebuild `templates/[id]/page.tsx` in the semantic system with a sandboxed preview, mirroring the landing-page detail layout.
-      Keep it a server component; keep the `email_templates` fetch and `notFound()`. Root `<div className="content-page">`; `<section className="page-heading">` with `<p className="eyebrow">Templates</p>`, `<h1>{template.name}</h1>`, sub `<p>Subject: {template.subject}</p>`, and a `.studio-actions` cluster: Edit `<Link href={.../edit} className="button secondary">` (keep `Pencil` icon) and a **Delete control using the established pattern** — `<form action={deleteTemplate.bind(null, template.id)}><SubmitButton label="Delete" className="button secondary" confirmMessage="Delete this template? This cannot be undone." /></form>` (import `deleteTemplate` from `../actions` and `SubmitButton` from `@/components/submit-button`). This is presentation-only surfacing of the existing action; do not modify `deleteTemplate`. Preview as `<div className="data-panel">` > `.data-panel-head` (`<h2>Preview</h2>` + `<p>How the email body renders.</p>`) > `<div className="studio-preview"><iframe title="Template Preview" srcDoc={template.body_html} sandbox="" /></div>`. Keep an HTML-source block but restyle it: a second `.data-panel` with `<pre className="studio-code">` (reuse the studio code styling) instead of raw `bg-gray-100`.
-      Files: `src/app/dashboard/templates/[id]/page.tsx`
-      Verify: `npm run build` + `npm run lint` clean; grep confirms no `indigo-`/`gray-` utilities; confirm `sandbox=""` present on the iframe; screenshot in Part E.
+- [ ] 6. Delete the dead `/r/` redirect tracking route.
+      Remove `src/app/r/[campaignId]/[email]/route.ts` and its now-empty parent directories (`src/app/r/[campaignId]/[email]/`, `src/app/r/[campaignId]/`, `src/app/r/`). Confirmed dead by code-wide search (no `/r/` references outside the audit doc; `approveCampaign` builds the pretty path, not `/r/`).
+      Files: delete `src/app/r/[campaignId]/[email]/route.ts` (+ empty dirs)
+      Verify: `grep -rn "/r/" src` returns nothing; `npm run build` compiles with no missing-route errors.
 
-- [ ] 5. Rebuild `groups/[id]/page.tsx` in the semantic system using `.data-panel`/`.app-table`.
-      Keep server component, the `groups` + `targets` fetch, and `notFound()`. Root `<div className="content-page">`; `<section className="page-heading">` with `<p className="eyebrow">Groups</p>`, `<h1>{group.name}</h1>`, sub `<p>Created {date}</p>`, and `.studio-actions` with Edit `<Link className="button secondary">`. Recipients as `<div className="data-panel">` > `.data-panel-head` (`<h2>Recipients ({count})</h2>` + `<p>People in this group.</p>`) > `.table-scroll` > `.app-table` with `<thead>` (Email / Name) and `<tbody>` rows (`<strong>` email, `.muted` name or "—"). Empty case: a single full-width row with `.muted` "No recipients in this group." (or an `.empty-state` block). Keep terminology consistent with the already-semantic group edit page which says "recipients".
-      Files: `src/app/dashboard/groups/[id]/page.tsx`
-      Verify: `npm run build` + `npm run lint` clean; grep confirms no `indigo-`/`gray-` utilities; screenshot in Part E.
+- [ ] 7. Create the admin-function rename migration.
+      New migration file renaming `public.is_signalsafe_admin()` → `public.is_platform_admin()`. DDL, in order: (1) `create or replace function public.is_platform_admin()` with the SAME body/signature as the current `is_signalsafe_admin` (returns boolean, language sql stable security definer, same email list + profiles role check). (2) `create or replace function public.protect_profile_role()` with its existing body but calling `public.is_platform_admin()` instead of the old name. (3) For each of the 9 admin policies in `20261021` (`Admins view all profiles`, `Admins update roles`, `Admins view all campaigns`, `Admins update all campaigns`, `Admins view all groups`, `Admins view all targets`, `Admins view all templates`, `Admins create campaign events`, `Admins view all events`): `drop policy if exists "<name>" on <table>;` then recreate it verbatim with `public.is_platform_admin()`. (4) `drop function if exists public.is_signalsafe_admin();` last, once nothing references it. Add a top comment: "Run this in the Supabase SQL editor — the app cannot run DDL." Do NOT edit existing migrations.
+      Files: `supabase/migrations/20261201_rename_admin_function.sql` (new)
+      Verify: read-review that every policy dropped is recreated with identical USING/WITH CHECK expressions (only the function name changes) and the old function is dropped only after recreating both dependent function and all policies. (Cannot run DDL locally — the user must apply it in Supabase; flag this in the final summary.)
 
-- [ ] 6. Verify-only: confirm `groups/[id]/edit/page.tsx` is already semantic; lightly align, do not regress.
-      Read it (already `.content-page`/`.page-heading` + `EditGroupForm`). Only change if an obvious inconsistency exists vs the rebuilt sibling screens (e.g. eyebrow wording). Do NOT restructure the form or `EditGroupForm` logic.
-      Files: `src/app/dashboard/groups/[id]/edit/page.tsx` (likely no change)
-      Verify: `npm run build` + `npm run lint` clean.
+- [ ] 8. Fix the raw-`{kind}` eyebrow on resource cards (display only).
+      In `resource-library.tsx` the card body renders `<p className="eyebrow">{kind}</p>`, showing the raw word "audience"/"template"/"page". Replace it with the human label already defined in `config[kind].eyebrow` (audience→"Groups", template→"Email Templates", page→"Landing Pages") — use `details.eyebrow`. Do NOT change the `ResourceKind` type, the `kind` prop values, or any keys passed by callers.
+      Files: `src/components/resource-library.tsx`
+      Verify: `npm run build` compiles. Read-confirm the card eyebrow uses `details.eyebrow`, and `kind` is still used only for the `resource-icon ${kind}` class and config lookup.
 
----
+- [ ] 9. Standardize terminology-residue copy (display strings only).
+      Replace invented/old vocabulary with plain professional wording across these files — DISPLAY TEXT ONLY, no prop/key/class/behavior changes:
+      - `src/app/dashboard/landing-pages/create/page.tsx`: in `starterHtml`, change the eyebrow line "PhishSafe learning moment" to a neutral label (e.g. "PhishSafe security simulation" or "Simulation notice"). Keep the rest of the starter HTML intact.
+      - `src/app/dashboard/campaigns/create/page.tsx`: relabel the group field "Authorized audience" → "Recipient group" (and its placeholder "Choose an audience" → "Choose a group"); relabel "Learning landing page" → "Landing page"; in the "Training scenario" helper text change "authorized audience" → "recipient group". Keep `name`/`id`/`htmlFor` attributes (`groupId`, `landingPageUrl`) unchanged.
+      - `src/app/dashboard/DashboardClient.tsx`: the Click-rate StatCard `meta` is `` `${stats.clicked} learning moments` `` — change to a neutral phrase (e.g. `` `${stats.clicked} link clicks` ``). Leave the score-legend `learning` className as-is (it's a CSS class, not visible copy).
+      - `src/app/page.tsx` (public home): "turn every risky click into a coaching moment" → neutral wording (e.g. "turn every risky click into a teachable moment" or "…into a learning opportunity" — avoid "coaching moment"); the workflow card `<h3>Build an audience</h3>` → "Build a recipient group" and its body "Write recipients manually or upload a file…" stays. Standardize on "Groups/Recipient group" and plain "landing page".
+      Files: the four files above.
+      Verify: `npm run build` compiles; `npm run lint` passes. `grep -rn "learning moment\|coaching moment\|Authorized audience\|Learning landing page" src` returns nothing.
 
-## Part C — Missing states (loading / error / not-found)
+- [ ] 10. Confirm Title-case on the landing-pages list label.
+      `src/app/dashboard/landing-pages/page.tsx` already passes `createLabel="New Landing Page"` (Title Case) to both `ResourceLibrary` and `CreateResourceDialog`. Verify in-context it matches siblings ("New Email Template", "New Group"); if any lowercase "New landing page" remains anywhere, Title-case it. This item is a verification/no-op unless a stray lowercase instance is found.
+      Files: `src/app/dashboard/landing-pages/page.tsx` (only if a fix is needed)
+      Verify: `grep -rn "New landing page" src` returns nothing (lowercase variant absent).
 
-- [ ] 7. Add `src/app/dashboard/loading.tsx` with a tasteful skeleton.
-      Server/stateless component rendering inside the dashboard `page-content`. Use a `.content-page` wrapper containing a `.page-heading` skeleton (two `.skeleton` bars) + a `.stat-grid` of four `.skeleton-card` + a `.data-panel` with several `.skeleton-row`s, all using the `.skeleton` shimmer class from step 1. No client hooks needed.
-      Files: `src/app/dashboard/loading.tsx`
-      Verify: `npm run build` + `npm run lint` clean; manually hit a dashboard route with network throttling in Part E to confirm the skeleton appears.
+- [ ] 11. Investigate and fix the stray circular "N" element on public pages (NEEDS IN-BROWSER VERIFICATION).
+      Reported: a small circular "N" avatar/bubble floats near the left edge, mid-page on the public home page (below the logo/customer strip). Static reading did NOT conclusively locate it — the hero mockup `<aside>` in `src/app/page.tsx` renders a `mini-logo` + five empty `<i/>` bars (decorative, inside the product card, not a left-edge bubble), and `brand-mark`/`avatar` styles belong to nav/dashboard. The coder MUST run the dev server (`npm run dev`, port 3000), open `/` in a browser, and visually confirm the stray "N". Trace its source: inspect `src/app/page.tsx`, `src/components/marketing-nav.tsx`, `src/app/layout.tsx`, and `src/app/globals.css` (look for an ::before/::after pseudo-element, a leaked dashboard/account avatar, or a theme-toggle/logo fragment positioned absolutely). If it's a leaked/misplaced element, remove it or constrain it to the dashboard; if it's intended decoration, position/style it so it reads as intentional. Do NOT declare it "already fine" from source alone.
+      Files: likely one of `src/app/page.tsx`, `src/components/marketing-nav.tsx`, `src/app/globals.css` (determined during investigation)
+      Verify: re-open `/` in the browser and confirm the stray "N" is gone (or now looks intentional); take a screenshot. `npm run build` compiles.
 
-- [ ] 8. Add per-heavy-route `loading.tsx` for the detail routes (cheap, reuse skeleton classes).
-      Create minimal `loading.tsx` at `campaigns/[id]`, `templates/[id]`, `landing-pages/[id]`, `groups/[id]`, each rendering a `.content-page` with a `.page-heading` skeleton + one `.data-panel` of `.skeleton-row`s (or a `.center-pad` with the `.spin` spinner for the lightest ones). Keep them tiny and consistent.
-      Files: `src/app/dashboard/campaigns/[id]/loading.tsx`, `src/app/dashboard/templates/[id]/loading.tsx`, `src/app/dashboard/landing-pages/[id]/loading.tsx`, `src/app/dashboard/groups/[id]/loading.tsx`
-      Verify: `npm run build` + `npm run lint` clean.
+- [ ] 12. De-minify one-line JSX for maintainability (formatting only; do LAST).
+      Reformat collapsed single-line JSX into readable multi-line JSX. PURE formatting — no changes to markup semantics, class names, or text content beyond the terminology edits in items 8–9. Priority order (do the files you already touched in 8–9 first, then the rest if time allows):
+      - Public pages: `src/app/page.tsx`, `src/app/features/page.tsx`, `src/app/pricing/page.tsx`, `src/app/about/page.tsx`, `src/components/marketing-nav.tsx`.
+      - Dashboard heavy one-liners: `src/components/resource-library.tsx`, `src/app/dashboard/requests/page.tsx`, `src/app/dashboard/users/page.tsx`, `src/app/dashboard/services/page.tsx`, and the big `<section>` one-liners in `src/app/dashboard/DashboardClient.tsx`.
+      Reformat incrementally and rebuild between files so a formatting slip is caught early. If constrained, prioritize items 1–11 and only de-minify files already edited.
+      Files: the files listed above.
+      Verify: `npm run build` compiles and `npm run lint` passes after each file; `git diff --stat` shows only the expected files; spot-check the rendered public pages are visually identical.
 
-- [ ] 9. Add `src/app/dashboard/error.tsx` (`'use client'`) with a designed on-brand error panel + reset.
-      Standard Next error boundary signature `({ error, reset }: { error: Error & { digest?: string }; reset: () => void })`. Render a `.center-pad` / `.content-page` with an `.empty-state`-style panel: icon, `<h3>Something went wrong</h3>`, a `.muted` message (show a generic line, not `error.message` raw unless safe), and a `<button className="button primary" onClick={reset}>Try again</button>` plus a `.button secondary` link back to `/dashboard`. Apply `fade-in`.
-      Files: `src/app/dashboard/error.tsx`
-      Verify: `npm run build` + `npm run lint` clean (client component must have `'use client'`).
-
-- [ ] 10. Add a root `error.tsx` and a `global-error.tsx` fallback (optional-but-cheap) + `not-found.tsx` (root and dashboard) with a designed 404.
-      `src/app/not-found.tsx`: a centered on-brand 404 (reuse marketing or `.center-pad` styling with brand mark, `<h1>404</h1>`, message, `.button primary` link to `/`). `src/app/dashboard/not-found.tsx`: same but link to `/dashboard`, rendered within the dashboard shell context. `src/app/error.tsx` (`'use client'`): root-level designed error with reset. (Skip `global-error.tsx` unless build asks for it.) The detail pages already call `notFound()` on missing records — no wiring needed; just confirm during Part E that hitting a bad id shows the designed 404, not a raw page.
-      Files: `src/app/not-found.tsx`, `src/app/dashboard/not-found.tsx`, `src/app/error.tsx`
-      Verify: `npm run build` + `npm run lint` clean; Part E visits a non-existent `/dashboard/templates/<bad-uuid>` to confirm the designed 404.
-
----
-
-## Part D — Apply the motion layer to targeted components
-
-- [ ] 11. Confirm the `.content-page > section` / list stagger from step 1 lands on rebuilt + existing pages (no per-file edits expected).
-      Because the stagger is scoped by CSS selector to `.content-page > section`/`.data-panel`, `.resource-grid > *`, `.app-table tbody tr`, `.campaign-list .campaign-row`, and marketing sections, the rebuilt screens (Part B) and existing semantic pages inherit it automatically. Spot-check that rebuilt screens use `<section>`/`.data-panel` as direct children of `.content-page` so the selector matches; adjust markup in Part B files only if a wrapper breaks the direct-child relationship.
-      Files: none (verification of Part B markup) — or minor markup tweak in the Part B files if needed.
-      Verify: Part E screenshots show sections fading/rising in on mount in light + dark.
-
-- [ ] 12. Apply the editor tab crossfade in `ai-html-editor.tsx` (presentation only).
-      The component swaps Code/Preview via `tab` state and `hidden` class. Add the `editor-fade` class (from step 2) to whichever pane is shown so switching tabs crossfades instead of snapping: e.g. `className={tab === 'code' ? 'studio-code editor-fade' : 'hidden'}` and `className={tab === 'preview' ? 'studio-preview editor-fade' : 'hidden'}`, keyed by `tab` so React remounts and replays the animation (add `key={tab}` on each pane or a wrapping element as needed). Do NOT change AI generation, `onHtmlChange`, `srcDoc`, or `sandbox=""`.
-      Files: `src/components/ai-html-editor.tsx`
-      Verify: `npm run build` + `npm run lint` clean; Part E toggles Code↔Preview in the landing/template editor and confirms a gentle crossfade, iframe still `sandbox=""`.
-
-- [ ] 13. Confirm modal + marketing motion (no logic edits).
-      `create-resource-dialog.tsx` renders `.create-modal-backdrop`/`.create-modal` whose animation now comes from step 2's CSS — no TS change needed; verify the panel pops in gently. Marketing sections inherit the step-1 fade-in-up via CSS selectors — no edits to `page.tsx`/`features`/`pricing` required. Inline confirmations (`.auth-message` in forms, the new campaign delete error) get `fade-in` via class added in Part B / already-present `.auth-message`.
-      Files: none (verification) — add a `fade-in` class to `.auth-message` usages only where a confirmation pops abruptly, if observed.
-      Verify: Part E opens the create dialog and confirms a centered, gently-animated modal; confirms press `:active` feedback is consistent (already global).
+- [ ] 13. Final full verification.
+      Run the complete build and lint. Ensure no temporary files were left behind and the dev server started for item 11 is stopped.
+      Files: none.
+      Verify: `npm run build` exits 0 and `npm run lint` exits 0; `git status` shows only intended changes.
 
 ---
 
-## Part E — Consistency sweep, dark mode, responsive, and screenshot verification
+## Backward-compatibility / behavior-change notes
 
-- [ ] 14. Light global consistency pass over the touched screens.
-      Compare the three rebuilt screens against the landing-page detail reference for spacing/heading/eyebrow wording and `.studio-actions` button order. Ensure dark mode works on every touched screen (the semantic classes already have `.dark` rules for `.data-panel`, `.stat-card`, `.app-table th`, inputs — rebuilt screens inherit them; verify no hardcoded light colors slipped in). Do NOT redesign already-good screens or do P2 cleanup.
-      Files: the Part B/C files as needed (minor tweaks only)
-      Verify: `npm run build` + `npm run lint` clean.
+- **Emitted links change** (item 4): new approvals send links with `&c=<campaignId>`. Links already in inboxes (no `c`) still work via the title fallback in item 5 — confirmed preserved.
+- **Event logging changes intentionally** (items 4–5): a single landing visit now logs ONE `clicked` event (was `clicked`+`opened`); `opened` comes only from the pixel. Analytics stop double-counting. The fake-login special case logs one `clicked` (was `clicked`+`opened`). `sent`/`compromised` unchanged.
+- **Migration is not auto-applied** (item 7): the renamed-admin-function migration must be run by the user in the Supabase SQL editor; the app cannot run DDL. Until applied, the old `is_signalsafe_admin` function keeps existing RLS working, so there is no mid-deploy regression window.
 
-- [ ] 15. Run the full verification + screenshot plan.
-      Start the dev server: `npm run dev` (port 3000; confirm it comes up). Use headless Playwright (already available as an MCP tool) to capture screenshots into `/home/gr3nn/Projects/PhishSim/.agents/tasks/phase2-shots/`. Capture, at minimum, the PUBLIC pages reachable without auth in BOTH light and dark (toggle via the marketing theme button or `prefers-color-scheme`): `/` (home), `/features`, `/pricing`, `/login`. If a test/dev session can reach the dashboard, also capture: dashboard overview (skeleton + loaded), a rebuilt campaign detail, template detail, group detail, the create-resource modal open, the AI editor Code and Preview tabs, a designed 404 (`/dashboard/templates/<bad-uuid>`), and the dashboard error boundary if triggerable. If auth blocks the dashboard, note that in the run output and rely on the public-page shots plus `npm run build`/`npm run lint` as the gate. Name files `<page>-<light|dark>.png`. Finally run `npm run build` and `npm run lint` one last time; both must pass. Clean up any temporary files created for screenshotting.
-      Files: screenshots under `/home/gr3nn/Projects/PhishSim/.agents/tasks/phase2-shots/`
-      Verify: `npm run build` exits 0, `npm run lint` clean, screenshots exist for at least `/`, `/features`, `/pricing`, `/login` in light + dark; rebuilt screens show no indigo/gray palette; motion visible; dark mode intact.
+## What must NOT change
+
+- Safety framing, admin-approval workflow, "credentials are NOT stored" copy, sandboxed `sandbox=""` preview iframes, and the `{{link}}` email token.
+- `.env`, env var names, and the DASHSCOPE/Stripe/SMTP/Supabase config.
+- The semantic-class CSS design system — no Tailwind-utility styling, no new dependencies, no new motion.
+- The fake-login page markup/behavior (`src/app/fake-login/page.tsx`, `src/app/fake-login/actions.ts`) stays as-is.
+- Action signatures and call sites for `deleteTemplate`, `deleteGroup`, `deleteCampaign`.
+- `kind` prop values, object keys, and component props in `resource-library.tsx` and its callers (item 8 is display-only).
+- Phase 1 billing/CRUD logic and Phase 2 rebuilt screens, except the specific terminology (items 8–9) and formatting (item 12) edits listed.
+- Existing migration files (`20261021`, `20261101`, `20261115`) — item 7 adds a NEW file only.
+- The public landing page's `dangerouslySetInnerHTML` render (intentional XSS for a phishing simulator) — keep it and its note.
+
+## Project build/test commands (discovered)
+
+- Build: `npm run build` (Next 16 `next build`).
+- Lint: `npm run lint` (eslint via `eslint-config-next`). Confirmed clean on the current `main`.
+- There is no unit-test framework in this repo (no test script/dependency); verification is build + lint + targeted in-browser check for the visual item (11). Grep checks are used only as a secondary read-confirmation, never as the primary verification.
 
 ---
 
-## Notes / assumptions
+## Phase 3 verification note (recorded so the reviewer need not re-run)
 
-- No test framework exists; "verify" means `npm run build` (includes typecheck) + `npm run lint` + Playwright screenshots. This is the project's real gate.
-- Dashboard screenshots depend on an authenticated session; if unavailable in the sandbox, public pages + build/lint are the accepted gate (noted so the reviewer does not treat missing dashboard shots as a failure).
-- Group edit (`groups/[id]/edit`) is already semantic from Phase 1 — treated as verify-only to avoid regression.
-- The `deleteCampaign` "prototype/assume cascade" comment and ownership-filter gaps on `deleteTemplate`/`deleteGroup` are **P2 (Phase 3) cleanup — out of scope here**; do not touch action logic.
-- All motion is wrapped in `@media (prefers-reduced-motion: no-preference)` with a global `reduce` override, so reduced-motion users get a static UI.
+Run on `main` after implementing all items. The Phase 2 review (`review.json`/`review.md`) was APPROVED with only non-blocking findings — nothing blocking to fix — so this iteration implemented the full Phase 3 scope.
 
----
+- **Build:** `npm run build` → exit 0 (after `rm -rf .next` to clear a stale generated type that still referenced the deleted `/r/` route; a fresh build is clean and the route list no longer contains `/r/`).
+- **Lint:** `npm run lint` → exit 0.
+- **Owner-scoped deletes:** `grep -n ".eq('user_id'" src/app/dashboard/templates/actions.ts src/app/dashboard/groups/actions.ts` confirms `deleteTemplate` and `deleteGroup` now chain `.eq('id', …).eq('user_id', user.id)` after an `if (!user) throw`.
+- **Tracking:**
+  - Old link shape: `{baseUrl}/{title}/{group}/{slug}?t=<email>`.
+  - New link shape: `{baseUrl}/{title}/{group}/{slug}?t=<email>&c=<campaignId>` (built in `approveCampaign`).
+  - Landing route resolves campaign by `c` first (`.eq('id', c).maybeSingle()`), falls back to the legacy title lookup when `c` is absent → old in-flight links still work.
+  - `grep -c "event_type: 'opened'"` in the landing route → `0`. Exactly one `clicked` is inserted per visit (both the fake-login branch and the standard branch). The pixel route (`/api/track/<id>/<email>/pixel`) remains the sole `opened` logger. Double-insert eliminated.
+  - Dead `/r/[campaignId]/[email]/route.ts` deleted (confirmed zero `/r/` references in `src/`); one canonical click path remains.
+- **Terminology:** no raw `{kind}` eyebrow (resource cards now use `details.eyebrow`); `grep` for "learning moment", "coaching moment", "Authorized audience", "Learning landing page", "New landing page" → none in `src/`. `landing-pages/page.tsx` already Title-cased "New Landing Page".
+- **Admin-function rename:** NEW additive migration `supabase/migrations/20261201_rename_admin_function.sql` creates `public.is_platform_admin()`, repoints `protect_profile_role()` and all 9 admin policies, then drops `is_signalsafe_admin()`. Existing migrations untouched. **MUST be run by a human in the Supabase SQL editor** (the app cannot run DDL). RLS behaviour is unchanged until applied (old function keeps working), so no mid-deploy regression window.
+- **Stray "N" element (item 11):** investigated with a running production server (`next start`) + headless Chromium. Captured full-page screenshots of `/` in dark, light, and mobile widths, plus `/features`; and ran a DOM probe (CDP `Runtime.evaluate`) searching for any element whose text is exactly "N", any `.avatar`/`.account-card` (the dashboard elements that render an initial letter), and any small absolutely/fixed-positioned circular element near the left edge mid-page. Result: **no stray "N" exists in the current code.** The only brand marks on public pages are the nav logo (top) and footer logo (bottom), both the ShieldCheck icon with empty text; `.mini-logo` sits inside the product mockup on the right. The leaked dashboard avatar the finding described is not present on the marketing pages (which render only `MarketingNav`/`MarketingFooter`). It was already resolved by the Phase 2 semantic rebuild or was a theme/state-specific artifact that no longer reproduces. No code change was made for item 11 to avoid introducing a regression; root cause documented here.
+- **De-minify (items 6/12):** reformatted `src/app/page.tsx`, `features/page.tsx`, `pricing/page.tsx`, `about/page.tsx`, `src/components/marketing-nav.tsx`, and `src/components/resource-library.tsx` from collapsed one-line JSX to readable multi-line. Pure formatting (plus the item-8/9 terminology edits in those files). Verified visually: the `/features` screenshot post-reformat is identical to the pre-reformat layout. The lower-priority dashboard one-liners (`requests/page.tsx`, `users/page.tsx`, `services/page.tsx`, big `DashboardClient.tsx` sections) were left as-is per the "prioritize 1–11, de-minify only files already edited if constrained" guidance.
+- **Preserved:** `{{link}}` token, `sandbox=""` previews, `dangerouslySetInnerHTML` landing render + its note, credential-not-stored copy, admin-approval workflow, `.env`, env var names, route/field names (only the additive `&c=` tracking identifier was added, documented above).
 
-## Phase 2 verification note (appended after implementation)
-
-Commands run from `/home/gr3nn/Projects/PhishSim`:
-- `npm run build` → exit 0 (Next 16 / Turbopack production build, includes typecheck; full route tree compiled, `/dashboard/*` detail routes present).
-- `npm run lint` → exit 0 (eslint, no warnings/errors).
-
-Grep confirmations:
-- The four rebuilt screens (`campaigns/[id]/CampaignDetailsClient.tsx`, `templates/[id]/page.tsx`, `groups/[id]/page.tsx`, `groups/[id]/edit/page.tsx`) contain no `indigo-`/`bg-gray-`/`text-gray-`/`rounded-md` raw utilities (no matches).
-- The campaign `alert('Failed to delete campaign')` is gone — replaced by inline `.auth-message error` state (no `alert(` matches).
-- All preview iframes keep `sandbox=""` (templates detail, ai-html-editor, landing-pages detail).
-- No server-action / route / column / form-field / `{{link}}` changes; `git diff --stat` on `actions.ts` files shows no changes. `.env` is untracked and untouched; `fake-login/page.tsx` has no diff.
-
-Visual verification: dev server (`next dev -p 3000`) started; headless Playwright (chromium) captured public pages in BOTH light and dark into `.agents/tasks/phase2-shots/` — home, features, pricing, login, and the designed 404 (10 PNGs). Dashboard screens require Supabase auth (routes 307-redirect to `/login` unauthenticated; no dev/test auth path exists), so they were verified by build + static review rather than screenshots. The temporary `playwright` dev dependency used only for screenshotting was uninstalled (package.json / lockfile restored to no diff).
+### Still needs runtime verification by the user
+1. Apply `20261201_rename_admin_function.sql` in Supabase, then confirm admin RLS still works (admins can view all profiles/campaigns/etc.; `is_platform_admin()` exists, `is_signalsafe_admin()` is gone).
+2. Send a real approved campaign and confirm each landing visit logs exactly one `clicked` (and the pixel logs `opened`), with the `&c=` id resolving the correct campaign and old `?t=`-only links still resolving via the title fallback.

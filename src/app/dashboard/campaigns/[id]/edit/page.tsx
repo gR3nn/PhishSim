@@ -101,20 +101,20 @@ export default async function EditCampaignPage({
                         ))}
                     </select>
                 </div><div className="field">
-                    <label htmlFor="groupId">Authorized audience</label>
+                    <label htmlFor="groupId">Recipient group</label>
                     <select
                         name="groupId"
                         id="groupId"
                         required
                         defaultValue={campaign.group_id}
                     >
-                        <option value="">Choose an audience</option>
+                        <option value="">Choose a group</option>
                         {groups?.map((g) => (
                             <option key={g.id} value={g.id}>{g.name}</option>
                         ))}
                     </select>
                 </div><div className="field full">
-                    <label htmlFor="landingPageUrl">Learning landing page</label>
+                    <label htmlFor="landingPageUrl">Landing page</label>
                     <select
                         name="landingPageUrl"
                         id="landingPageUrl"
