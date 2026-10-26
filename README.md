@@ -4,13 +4,14 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
 
 ## Features
 
--   **Role-aware Workspace**: One login for clients and administrators.
+-   **Role-aware Workspace**: One login for clients, administrators, campaign managers, support agents, and read-only auditors.
 -   **Approval Workflow**: Campaigns remain pending until an administrator approves them.
--   **Service Billing**: Stripe-hosted monthly subscription checkout.
+-   **Wallet, Cart & Billing**: €1-per-recipient campaigns, coupon credit, a cart, and Stripe-hosted subscriptions.
 -   **Campaign Management**: Create campaigns for authorized employee groups.
 -   **Email Templates**: Customizable HTML email templates with dynamic tracking links.
 -   **Audience Builder**: Write or paste validated recipients using `email@example.com, Name;` format.
--   **Starter Libraries**: Seed 12 email templates and 12 educational landing pages for every current account.
+-   **Shared Starter Libraries**: 12 email templates and 12 landing pages with personal, non-destructive overrides.
+-   **Support & Audit**: Internal support conversations and an administrator activity trail.
 -   **AI Landing-page Generator**: Upload reference photos and a comment, and the AI provider (Alibaba Cloud Model Studio) drafts a self-contained HTML page into the editor for review before you save it (nothing is auto-saved).
 -   **AI Email Templates**: The email-template builder can also draft HTML email bodies with AI, which you can edit in the UI before saving.
 -   **Real-time Tracking**: Track email opens, link clicks, and compromised credentials (simulated).
@@ -95,6 +96,8 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
     2.  `supabase/migrations/20261021_roles_approvals_billing.sql` — roles, approval workflow, billing.
     3.  `supabase/migrations/20261101_orders_entitlements.sql` — orders + entitlement columns.
     4.  `supabase/migrations/20261115_billing_customer.sql` — adds the nullable `stripe_customer_id` column to `orders`.
+    5.  `supabase/migrations/20261201_rename_admin_function.sql` — renames the legacy administrator helper.
+    6.  `supabase/migrations/20261215_roles_wallet_cart_support_audit.sql` — five roles, shared resource overrides, wallet credits, support messages, audit logs, and custom-campaign orders.
 
     An existing project only needs the migrations it has not yet run, applied in order. The core tables are:
 
@@ -104,7 +107,10 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
     -   `targets`
     -   `events`
     -   `landing_pages`
-    -   `orders` — columns after all migrations: `id`, `user_id`, `stripe_session_id` (unique), `plan` (CHECK `single` | `starter` | `growth` | `enterprise` — note the `single` one-time plan is now included), `amount_cents`, `currency`, `status` (CHECK `pending` | `paid` | `cancelled` | `refunded`), `created_at`, `billing_type`, `period_start`, `credit_consumed`, `stripe_customer_id`.
+    -   `orders` — purchase and entitlement records for `custom`, `starter`, `growth`, and `enterprise` products.
+    -   `credit_transactions` — immutable wallet ledger used by coupons and custom campaigns.
+    -   `support_tickets`, `support_messages` — client/support conversations.
+    -   `activity_logs` — authenticated page-view and click audit events.
 
     ### Set up the Stripe webhook
 

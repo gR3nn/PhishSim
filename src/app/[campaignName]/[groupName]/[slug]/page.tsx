@@ -85,13 +85,12 @@ export default async function LandingPage({
     // Landing pages are global or user-specific?
     // The prompt implies generic or user defined.
     // We look up by url_slug.
-    const { data: landingPage, error: pageError } = await supabase
+    const { data: landingPages, error: pageError } = await supabase
         .from('landing_pages')
-        .select('html_content')
+        .select('html_content,user_id,is_default')
         .eq('url_slug', slug)
-        .eq('user_id', campaignOwnerId || '')
-        .limit(1)
-        .maybeSingle()
+        .limit(20)
+    const landingPage = landingPages?.find((page) => page.user_id === campaignOwnerId) || landingPages?.find((page) => page.is_default)
 
     if (campaignError || pageError || !landingPage) {
         console.error('Landing page or campaign not found:', { campaignError, pageError })

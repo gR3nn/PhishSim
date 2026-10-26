@@ -142,7 +142,7 @@ export default function Home() {
           <div>
             <p className="eyebrow">Ready when you are</p>
             <h2>Make the next click a safer one.</h2>
-            <p>Start with a single campaign or build an ongoing awareness program.</p>
+            <p>Start with a custom campaign or build an ongoing awareness program.</p>
           </div>
           <Link href="/pricing" className="button primary">
             See plans <ArrowRight size={16} />

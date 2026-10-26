@@ -1,12 +1,15 @@
-import { AlertTriangle, Check, Rocket, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { AlertTriangle, Check, Coins, Rocket, ShieldCheck, Sparkles, Users } from 'lucide-react'
 import { plans, type PlanId } from '@/lib/plans'
 import { createClient } from '@/lib/supabase/server'
 import { getEntitlement, isBillingConfigured, type Entitlement } from '@/lib/entitlements'
 import { SubmitButton } from '@/components/submit-button'
 import PurchaseButton from './PurchaseButton'
 import { openBillingPortal } from './billing-actions'
+import { getCreditBalance } from '@/lib/credits'
+import CouponForm from './CouponForm'
+import CartPanel from './CartPanel'
 
-const icons = { single: Zap, starter: Rocket, growth: Sparkles, enterprise: ShieldCheck }
+const icons = { custom: Users, starter: Rocket, growth: Sparkles, enterprise: ShieldCheck }
 
 type OrderRow = {
   id: string
@@ -28,7 +31,7 @@ function entitlementBanner(entitlement: Entitlement | null, configured: boolean)
     return <div className="attention-banner"><div className="attention-icon"><AlertTriangle size={22} /></div><div><strong>Billing is not configured</strong><p>Ask an administrator to set SUPABASE_SERVICE_ROLE_KEY.</p></div></div>
   }
   if (!entitlement || !entitlement.plan) {
-    return <div className="attention-banner"><div className="attention-icon"><Zap size={22} /></div><div><strong>No active plan</strong><p>Purchase to create campaigns.</p></div></div>
+    return <div className="attention-banner"><div className="attention-icon"><Coins size={22} /></div><div><strong>No active plan</strong><p>Purchase a custom campaign or monthly plan to create campaigns.</p></div></div>
   }
   const planName = plans[entitlement.plan].name
   const monthly = Number.isFinite(entitlement.remainingMonthly)
@@ -45,6 +48,7 @@ export default async function ServicesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const configured = isBillingConfigured()
   const entitlement = user ? await getEntitlement(user.id) : null
+  const creditCents = user ? await getCreditBalance(user.id) : 0
 
   // Owner-scoped read: the orders SELECT RLS policy limits rows to the user's own.
   const orders = user
@@ -57,7 +61,8 @@ export default async function ServicesPage() {
   const canManage = !!entitlement?.plan && MONTHLY_PLANS.includes(entitlement.plan as PlanId)
 
   return <div className="content-page">
-    <section className="page-heading"><div><p className="eyebrow">Billing</p><h1>Plans & billing</h1><p>Every plan includes admin review before a simulation is delivered. Payments use Stripe Checkout in test mode.</p></div></section>
+    <section className="page-heading"><div><p className="eyebrow">Billing & wallet</p><h1>Build your security program</h1><p>Pay €1 per person for a custom campaign or choose an ongoing plan. Add products to your cart before checkout.</p></div><CartPanel creditCents={creditCents}/></section>
+    <section className="wallet-card"><div className="wallet-icon"><Coins size={23}/></div><div><p>Available credit</p><strong>€{(creditCents / 100).toFixed(2)}</strong><span>Credits automatically cover eligible custom campaigns.</span></div><CouponForm/></section>
     {entitlementBanner(entitlement, configured)}
     <section className="plans-grid">
       {(Object.entries(plans) as [PlanId, (typeof plans)[PlanId]][]).map(([id, plan]) => {
@@ -67,7 +72,7 @@ export default async function ServicesPage() {
           {featured && <span className="plan-label">Popular</span>}
           <div className="plan-icon"><Icon size={20} /></div>
           <h2>{plan.name}</h2><p>{plan.description}</p>
-          <div className="price"><strong>€{plan.price}</strong><span>{plan.billing === 'one-time' ? ' one time' : ' / month'}</span></div>
+          <div className="price"><strong>€{plan.price}</strong><span>{plan.billing === 'per-recipient' ? ' / recipient' : ' / month'}</span></div>
           <PurchaseButton plan={id} featured={featured} />
           <ul className="feature-list">{plan.features.map((feature) => <li key={feature}><Check size={14} />{feature}</li>)}</ul>
         </article>

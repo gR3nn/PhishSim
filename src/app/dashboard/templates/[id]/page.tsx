@@ -37,13 +37,13 @@ export default async function TemplateDetailsPage({
                         <Pencil size={14} />
                         Edit
                     </Link>
-                    <form action={deleteTemplate.bind(null, template.id)}>
+                    {!template.is_default && <form action={deleteTemplate.bind(null, template.id)}>
                         <SubmitButton
                             label="Delete"
                             className="button secondary"
                             confirmMessage="Delete this template? This cannot be undone."
                         />
-                    </form>
+                    </form>}
                 </div>
             </section>
 

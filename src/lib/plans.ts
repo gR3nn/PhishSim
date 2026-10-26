@@ -1,10 +1,10 @@
 export const plans = {
-  single: {
-    name: 'Single campaign',
-    price: 39,
-    billing: 'one-time',
-    description: 'One focused simulation without a monthly commitment.',
-    features: ['Up to 100 recipients', 'One approved campaign', 'Full analytics', '12 training scenarios'],
+  custom: {
+    name: 'Custom campaign',
+    price: 1,
+    billing: 'per-recipient',
+    description: 'Pay only for the exact audience used in one campaign.',
+    features: ['€1 per recipient', 'One approved campaign', 'Full analytics', 'No subscription required'],
   },
   starter: {
     name: 'Starter',

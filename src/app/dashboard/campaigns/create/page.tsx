@@ -3,6 +3,7 @@ import { launchCampaign } from '../actions'
 import Link from 'next/link'
 import { SubmitButton } from '@/components/submit-button'
 import { getEntitlement } from '@/lib/entitlements'
+import { resolveUserLibrary } from '@/lib/resource-overrides'
 
 export default async function CreateCampaignPage() {
     const supabase = await createClient()
@@ -31,10 +32,11 @@ export default async function CreateCampaignPage() {
             : 'Unlimited campaigns this month'
 
     // Fetch Templates
-    const { data: templates } = await supabase
+    const { data: rawTemplates } = await supabase
         .from('email_templates')
-        .select('id, name')
+        .select('id, name, user_id, is_default, source_template_id')
         .order('created_at', { ascending: false })
+    const templates = resolveUserLibrary(rawTemplates || [], user!.id)
 
     // Fetch Groups
     const { data: groups } = await supabase
@@ -43,10 +45,11 @@ export default async function CreateCampaignPage() {
         .order('created_at', { ascending: false })
 
     // Fetch Landing Pages
-    const { data: customLandingPages } = await supabase
+    const { data: rawLandingPages } = await supabase
         .from('landing_pages')
-        .select('name, url_slug')
+        .select('id, name, url_slug, user_id, is_default, source_template_id')
         .order('created_at', { ascending: false })
+    const customLandingPages = resolveUserLibrary(rawLandingPages || [], user!.id)
 
     const landingPages = [
         { url: '/fake-login', name: 'Fake Microsoft Login' },

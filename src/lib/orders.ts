@@ -6,7 +6,7 @@ export type StripeCheckoutSession = {
   amount_total?: number
   currency?: string
   customer?: string | { id?: string } | null
-  metadata?: { user_id?: string; plan?: string }
+  metadata?: { user_id?: string; plan?: string; cart?: string }
 }
 
 function startOfCurrentUtcMonth(): string {
@@ -24,25 +24,31 @@ export async function recordOrderFromSession(session: StripeCheckoutSession): Pr
   const admin = createAdminClient()
   if (!admin) return
 
-  const plan = session.metadata?.plan
   const userId = session.metadata?.user_id
-  if (!plan || !userId) return
-
-  const billingType = plan === 'single' ? 'one-time' : 'monthly'
-  const periodStart = billingType === 'monthly' ? startOfCurrentUtcMonth() : null
-
-  await admin.from('orders').upsert(
-    {
+  if (!userId) return
+  let cart: { plan: string; quantity: number }[] = []
+  try { cart = session.metadata?.cart ? JSON.parse(session.metadata.cart) : [] } catch { cart = [] }
+  if (!cart.length && session.metadata?.plan) cart = [{ plan: session.metadata.plan, quantity: 1 }]
+  if (!cart.length) return
+  const rows = cart.map((item, index) => {
+    const billingType = item.plan === 'custom' ? 'one-time' : 'monthly'
+    const quantity = Math.max(1, Number(item.quantity) || 1)
+    return {
       user_id: userId,
-      plan,
+      plan: item.plan,
       billing_type: billingType,
-      amount_cents: session.amount_total ?? 0,
+      amount_cents: item.plan === 'custom' ? quantity * 100 : (session.amount_total ?? 0),
       currency: session.currency || 'eur',
       status: 'paid',
-      stripe_session_id: session.id,
-      period_start: periodStart,
+      stripe_session_id: `${session.id}:${index}`,
+      period_start: billingType === 'monthly' ? startOfCurrentUtcMonth() : null,
       stripe_customer_id: typeof session.customer === 'string' ? session.customer : null,
-    },
+      quantity,
+      recipient_limit: item.plan === 'custom' ? quantity : null,
+      paid_with: 'stripe',
+    }
+  })
+  await admin.from('orders').upsert(rows,
     { onConflict: 'stripe_session_id' },
   )
 }

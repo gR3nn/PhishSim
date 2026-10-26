@@ -1,36 +1,29 @@
 'use client'
 
 import { useState } from 'react'
+import { Check, ShoppingCart } from 'lucide-react'
 import type { PlanId } from '@/lib/plans'
 
+export type CartItem = { plan: PlanId; quantity: number }
+const CART_KEY = 'phishsafe-cart'
+
+export function readCart(): CartItem[] {
+  try { return JSON.parse(localStorage.getItem(CART_KEY) || '[]') as CartItem[] } catch { return [] }
+}
+
+export function writeCart(items: CartItem[]) {
+  localStorage.setItem(CART_KEY, JSON.stringify(items))
+  window.dispatchEvent(new CustomEvent('phishsafe-cart-change'))
+}
+
 export default function PurchaseButton({ plan, featured }: { plan: PlanId; featured?: boolean }) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [unavailable, setUnavailable] = useState(false)
-
-  async function checkout() {
-    setLoading(true)
-    setError('')
-    try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      })
-      const data = await response.json()
-      if (response.status === 503) {
-        setError("Checkout unavailable — payments aren't configured yet.")
-        setUnavailable(true)
-        setLoading(false)
-        return
-      }
-      if (!response.ok) throw new Error(data.error || 'Checkout is unavailable')
-      window.location.href = data.url
-    } catch (checkoutError) {
-      setError(checkoutError instanceof Error ? checkoutError.message : 'Checkout is unavailable')
-      setLoading(false)
-    }
+  const [quantity, setQuantity] = useState(plan === 'custom' ? 10 : 1)
+  const [added, setAdded] = useState(false)
+  function add() {
+    const cart = readCart().filter((item) => item.plan !== plan && !(plan !== 'custom' && item.plan !== 'custom'))
+    writeCart([...cart, { plan, quantity: plan === 'custom' ? Math.max(1, Math.min(10000, quantity)) : 1 }])
+    setAdded(true)
+    window.setTimeout(() => setAdded(false), 1800)
   }
-
-  return <><button onClick={checkout} disabled={loading || unavailable} className={`button ${featured ? 'primary' : 'secondary'}`}>{loading ? 'Opening checkout…' : unavailable ? 'Checkout unavailable' : 'Choose plan'}</button>{error && <p className="checkout-error">{error}</p>}</>
+  return <div className="add-plan-control">{plan === 'custom' && <label>Recipients<input type="number" min="1" max="10000" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))}/><span>€{Math.max(1, quantity).toLocaleString()}</span></label>}<button onClick={add} className={`button ${featured ? 'primary' : 'secondary'}`}>{added ? <><Check size={15}/> Added to cart</> : <><ShoppingCart size={15}/> Add to cart</>}</button></div>
 }

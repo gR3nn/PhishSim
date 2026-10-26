@@ -3,8 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { sendEmail } from '@/lib/email'
-import { isAdmin } from '@/lib/authz'
-import { consumeAllowance, getEntitlement } from '@/lib/entitlements'
+import { canManageCampaigns, getRole } from '@/lib/authz'
+import { canCoverRecipients, consumeAllowance, getEntitlement } from '@/lib/entitlements'
 
 export async function launchCampaign(formData: FormData) {
     const title = formData.get('title') as string
@@ -25,8 +25,11 @@ export async function launchCampaign(formData: FormData) {
 
     const entitlement = await getEntitlement(user.id)
     if (!entitlement.canCreate) {
-        throw new Error("You've used all campaigns included in your plan this month. Upgrade or buy a single campaign to continue.")
+        throw new Error("You've used all campaigns included in your plan this month. Upgrade or buy a custom campaign to continue.")
     }
+    const { count: recipientCount } = await supabase.from('targets').select('id', { count: 'exact', head: true }).eq('group_id', groupId)
+    if (!recipientCount) throw new Error('The selected group has no recipients')
+    if (!(await canCoverRecipients(user.id, recipientCount))) throw new Error(`Your custom campaign credit does not cover this ${recipientCount}-person audience.`)
 
     // Campaign requests are reviewed by an administrator before any email is sent.
     const { data: campaign, error: campaignError } = await supabase
@@ -48,7 +51,7 @@ export async function launchCampaign(formData: FormData) {
         throw new Error('Failed to create campaign')
     }
 
-    await consumeAllowance(user.id)
+    await consumeAllowance(user.id, recipientCount)
 
     redirect(`/dashboard/campaigns/${campaign.id}`)
 }
@@ -109,7 +112,7 @@ export async function approveCampaign(campaignId: string) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     const { data: profile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle() : { data: null }
-    if (!user || !isAdmin(user.email, profile?.role)) throw new Error('Administrator access required')
+    if (!user || !canManageCampaigns(getRole(user.email, profile?.role))) throw new Error('Campaign manager access required')
 
     const { data: campaign } = await supabase.from('campaigns').select('*').eq('id', campaignId).single()
     if (!campaign || campaign.status !== 'pending_approval') throw new Error('Campaign request is not available for approval')
@@ -162,7 +165,7 @@ export async function rejectCampaign(formData: FormData) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     const { data: profile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle() : { data: null }
-    if (!user || !isAdmin(user.email, profile?.role)) throw new Error('Administrator access required')
+    if (!user || !canManageCampaigns(getRole(user.email, profile?.role))) throw new Error('Campaign manager access required')
     const campaignId = String(formData.get('campaignId') || '')
     const reason = String(formData.get('reason') || 'Request requires changes')
     await supabase.from('campaigns').update({ status: 'rejected', rejection_reason: reason, approved_by: user.id }).eq('id', campaignId).eq('status', 'pending_approval')

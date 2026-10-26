@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { canManageCampaigns, getRole } from '@/lib/authz'
 
 export async function createLandingPage(formData: FormData) {
     const supabase = await createClient()
@@ -61,15 +62,23 @@ export async function updateLandingPage(formData: FormData) {
     // Ensure slug is URL safe
     const safeSlug = urlSlug.toLowerCase().replace(/[^a-z0-9-]/g, '-')
 
-    const { error } = await supabase
-        .from('landing_pages')
-        .update({
-            name,
-            url_slug: safeSlug,
-            html_content: htmlContent,
-        })
-        .eq('id', id)
-        .eq('user_id', user.id)
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    const role = getRole(user.email, profile?.role)
+    const { data: original } = await supabase.from('landing_pages').select('*').eq('id', id).single()
+    if (!original) throw new Error('Landing page not found')
+    let error
+    let createdOverride = false
+    if (original.is_default && !canManageCampaigns(role)) {
+        createdOverride = true
+        const result = await supabase.from('landing_pages').upsert({
+            user_id: user.id, source_template_id: original.id, is_default: false,
+            name, url_slug: safeSlug, html_content: htmlContent, updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,source_template_id' })
+        error = result.error
+    } else {
+        const result = await supabase.from('landing_pages').update({ name, url_slug: safeSlug, html_content: htmlContent, updated_at: new Date().toISOString() }).eq('id', id)
+        error = result.error
+    }
 
     if (error) {
         if (error.code === '23505') {
@@ -81,10 +90,11 @@ export async function updateLandingPage(formData: FormData) {
 
     revalidatePath('/dashboard/landing-pages')
     revalidatePath(`/dashboard/landing-pages/${id}`)
-    redirect(`/dashboard/landing-pages/${id}`)
+    redirect(createdOverride ? '/dashboard/landing-pages' : `/dashboard/landing-pages/${id}`)
 }
 
-export async function deleteLandingPage(id: string) {
+export async function deleteLandingPage(input: FormData | string) {
+    const id = typeof input === 'string' ? input : String(input.get('id') || '')
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -92,6 +102,8 @@ export async function deleteLandingPage(id: string) {
         redirect('/login')
     }
 
+    const { data: page } = await supabase.from('landing_pages').select('is_default,user_id').eq('id', id).single()
+    if (!page || page.is_default || page.user_id !== user.id) throw new Error('Default landing pages cannot be deleted')
     const { error } = await supabase
         .from('landing_pages')
         .delete()

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Eye, MousePointerClick, Send, ShieldAlert, ShieldCheck } from 'lucide-react'
-import type { AppRole } from '@/lib/authz'
+import { canManageCampaigns, canUseBuilder, type AppRole } from '@/lib/authz'
 
 type Stats = {
     sent: number
@@ -62,14 +62,16 @@ export default function DashboardClient({ initialStats, campaigns, role, dailyAc
     const activityMax = Math.max(1, ...visibleActivity.map((day) => day.value))
     const awarenessScore = stats.sent ? Math.max(0, Math.round(100 - (rates.clicked * 0.6) - (rates.compromised * 0.4))) : 0
     const pendingCount = campaigns.filter((campaign) => campaign.status === 'pending_approval').length
+    const manager = canManageCampaigns(role)
+    const builder = canUseBuilder(role)
 
     return <div className="dashboard-stack">
         <section className="page-heading">
-            <div><p className="eyebrow">{role === 'admin' ? 'Command center' : 'Your workspace'}</p><h1>{role === 'admin' ? 'Security overview' : 'Awareness at a glance'}</h1><p>{role === 'admin' ? 'Review platform activity, campaign performance, and requests needing attention.' : 'Track your organization’s simulations and build safer habits over time.'}</p></div>
-            <Link href="/dashboard/campaigns/create" className="button primary"><Send size={17} /> New Campaign</Link>
+            <div><p className="eyebrow">{manager ? 'Command center' : role === 'auditor' ? 'Executive view' : role === 'support' ? 'Support workspace' : 'Your workspace'}</p><h1>{manager ? 'Security overview' : role === 'auditor' ? 'Company risk posture' : role === 'support' ? 'Client care overview' : 'Awareness at a glance'}</h1><p>{manager ? 'Review platform activity, campaign performance, and requests needing attention.' : role === 'auditor' ? 'Read-only campaign analytics and historical security performance.' : role === 'support' ? 'Open the support inbox to answer client questions.' : 'Track your organization’s simulations and build safer habits over time.'}</p></div>
+            {builder && <Link href="/dashboard/campaigns/create" className="button primary"><Send size={17} /> New Campaign</Link>}
         </section>
 
-        {role === 'admin' && pendingCount > 0 && <section className="attention-banner"><div className="attention-icon"><ShieldCheck size={22} /></div><div><strong>{pendingCount} request{pendingCount === 1 ? ' is' : 's are'} ready for review</strong><p>Check consent details and approve safe campaigns before delivery.</p></div><Link href="/dashboard/requests">Review queue <ArrowRight size={16} /></Link></section>}
+        {manager && pendingCount > 0 && <section className="attention-banner"><div className="attention-icon"><ShieldCheck size={22} /></div><div><strong>{pendingCount} request{pendingCount === 1 ? ' is' : 's are'} ready for review</strong><p>Check consent details and approve safe campaigns before delivery.</p></div><Link href="/dashboard/requests">Review queue <ArrowRight size={16} /></Link></section>}
 
         <section className="stat-grid">
             <StatCard label="Emails delivered" value={stats.sent} meta={`${stats.sent} total delivery events`} tooltip="Number of approved simulation emails delivered to your audiences." icon={Send} tone="blue" active={metric === 'sent'} onSelect={() => setMetric('sent')} />
@@ -95,8 +97,8 @@ export default function DashboardClient({ initialStats, campaigns, role, dailyAc
         </section>
 
         <section className="panel campaigns-panel">
-            <div className="panel-heading"><div><p className="eyebrow">Campaign activity</p><h2>Recent campaigns</h2></div><Link href="/dashboard/campaigns/create" className="text-link">New Campaign <ArrowRight size={15} /></Link></div>
-            {campaigns.length === 0 ? <div className="empty-state"><div><Send size={24} /></div><h3>No campaigns yet</h3><p>Create your first authorized simulation request and follow its approval here.</p><Link href="/dashboard/campaigns/create" className="button primary">Create a campaign</Link></div> : <div className="campaign-list">{campaigns.slice(0, 5).map((campaign) => <Link href={`/dashboard/campaigns/${campaign.id}`} className="campaign-row" key={campaign.id}><div className="campaign-monogram">{campaign.title.charAt(0)}</div><div className="campaign-name"><strong>{campaign.title}</strong><span>Created {new Date(campaign.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div><span className={`status-badge ${campaign.status}`}>{campaign.status.replace('_', ' ')}</span><ArrowRight size={17} className="row-arrow" /></Link>)}</div>}
+            <div className="panel-heading"><div><p className="eyebrow">Campaign activity</p><h2>Recent campaigns</h2></div>{builder && <Link href="/dashboard/campaigns/create" className="text-link">New Campaign <ArrowRight size={15} /></Link>}</div>
+            {campaigns.length === 0 ? <div className="empty-state"><div><Send size={24} /></div><h3>No campaigns yet</h3><p>{builder ? 'Create your first authorized simulation request and follow its approval here.' : 'Campaign history will appear here when activity is available.'}</p>{builder && <Link href="/dashboard/campaigns/create" className="button primary">Create a campaign</Link>}</div> : <div className="campaign-list">{campaigns.slice(0, 5).map((campaign) => <Link href={`/dashboard/campaigns/${campaign.id}`} className="campaign-row" key={campaign.id}><div className="campaign-monogram">{campaign.title.charAt(0)}</div><div className="campaign-name"><strong>{campaign.title}</strong><span>Created {new Date(campaign.created_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div><span className={`status-badge ${campaign.status}`}>{campaign.status.replace('_', ' ')}</span><ArrowRight size={17} className="row-arrow" /></Link>)}</div>}
         </section>
     </div>
 }

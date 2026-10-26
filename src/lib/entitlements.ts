@@ -2,7 +2,7 @@ import 'server-only'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 export const PLAN_QUOTA = {
-  single: 1,
+  custom: 1,
   starter: 2,
   growth: 10,
   enterprise: Number.POSITIVE_INFINITY,
@@ -16,6 +16,7 @@ type PaidOrder = {
   billing_type: string | null
   credit_consumed: boolean | null
   created_at: string
+  recipient_limit?: number | null
 }
 
 export type Entitlement = {
@@ -56,7 +57,7 @@ export async function getEntitlement(userId: string): Promise<Entitlement> {
 
   const { data: orders } = await admin
     .from('orders')
-    .select('id, plan, billing_type, credit_consumed, created_at')
+    .select('id, plan, billing_type, credit_consumed, created_at, recipient_limit')
     .eq('user_id', userId)
     .eq('status', 'paid')
 
@@ -87,10 +88,10 @@ export async function getEntitlement(userId: string): Promise<Entitlement> {
     : Number.POSITIVE_INFINITY
 
   const oneTimeCredits = paidOrders.filter(
-    (o) => o.plan === 'single' && !o.credit_consumed,
+    (o) => o.plan === 'custom' && !o.credit_consumed,
   ).length
 
-  const plan: EntitlementPlan | null = activeMonthlyPlan ?? (oneTimeCredits > 0 ? 'single' : null)
+  const plan: EntitlementPlan | null = activeMonthlyPlan ?? (oneTimeCredits > 0 ? 'custom' : null)
   const canCreate = remainingMonthly > 0 || oneTimeCredits > 0
 
   return {
@@ -103,7 +104,16 @@ export async function getEntitlement(userId: string): Promise<Entitlement> {
   }
 }
 
-export async function consumeAllowance(userId: string): Promise<void> {
+export async function canCoverRecipients(userId: string, recipientCount: number): Promise<boolean> {
+  const entitlement = await getEntitlement(userId)
+  if (entitlement.remainingMonthly > 0) return true
+  const admin = createAdminClient()
+  if (!admin) return false
+  const { count } = await admin.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'paid').eq('plan', 'custom').eq('credit_consumed', false).gte('recipient_limit', recipientCount)
+  return (count || 0) > 0
+}
+
+export async function consumeAllowance(userId: string, recipientCount = 1): Promise<void> {
   const admin = createAdminClient()
   if (!admin) return
 
@@ -111,14 +121,15 @@ export async function consumeAllowance(userId: string): Promise<void> {
   // Monthly quota covers this campaign — nothing to consume.
   if (entitlement.remainingMonthly > 0) return
 
-  // Otherwise consume the oldest unused one-time (single) credit.
+  // Otherwise consume the oldest custom-campaign credit large enough for this audience.
   const { data: singles } = await admin
     .from('orders')
     .select('id')
     .eq('user_id', userId)
     .eq('status', 'paid')
-    .eq('plan', 'single')
+    .eq('plan', 'custom')
     .eq('credit_consumed', false)
+    .gte('recipient_limit', recipientCount)
     .order('created_at', { ascending: true })
     .limit(1)
 

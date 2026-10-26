@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { ArrowRight, FileCode2, Mail, Plus, Users } from 'lucide-react'
+import { ArrowRight, FileCode2, Mail, Plus, Trash2, Users } from 'lucide-react'
+import { SubmitButton } from '@/components/submit-button'
 
 type ResourceKind = 'audience' | 'template' | 'page'
-type ResourceItem = { id: string; title: string; subtitle: string; meta: string; href?: string }
+type ResourceItem = { id: string; title: string; subtitle: string; meta: string; href?: string; isDefault?: boolean; canDelete?: boolean }
 
 const config = {
   audience: {
@@ -34,12 +35,14 @@ export function ResourceLibrary({
   createHref,
   createLabel,
   createSlot,
+  deleteAction,
 }: {
   kind: ResourceKind
   items: ResourceItem[]
   createHref: string
   createLabel: string
   createSlot?: React.ReactNode
+  deleteAction?: (formData: FormData) => Promise<void>
 }) {
   const details = config[kind]
   const Icon = details.icon
@@ -92,31 +95,23 @@ export function ResourceLibrary({
       ) : (
         <section className="resource-grid">
           {items.map((item) => {
-            const card = (
-              <>
+            return (
+              <article className="resource-card" key={item.id}>
                 <div className={`resource-icon ${kind}`}>
                   <Icon size={20} />
                 </div>
                 <div className="resource-copy">
-                  <p className="eyebrow">{details.eyebrow}</p>
+                  <p className="eyebrow">{item.isDefault ? 'PhishSafe default' : details.eyebrow}</p>
                   <h2>{item.title}</h2>
                   <p>{item.subtitle}</p>
                 </div>
                 <div className="resource-foot">
                   <span>{item.meta}</span>
-                  <span className="resource-open">
-                    Open <ArrowRight size={14} />
+                  <span className="resource-card-actions">
+                    {item.canDelete && deleteAction && <form action={deleteAction}><input type="hidden" name="id" value={item.id}/><SubmitButton label="Delete" pendingLabel="" className="resource-delete" confirmMessage={`Delete ${item.title}? This cannot be undone.`}><Trash2 size={14}/></SubmitButton></form>}
+                    {item.href && <Link href={item.href} className="resource-open">Open <ArrowRight size={14} /></Link>}
                   </span>
                 </div>
-              </>
-            )
-            return item.href ? (
-              <Link className="resource-card" href={item.href} key={item.id}>
-                {card}
-              </Link>
-            ) : (
-              <article className="resource-card" key={item.id}>
-                {card}
               </article>
             )
           })}

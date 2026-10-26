@@ -52,11 +52,12 @@ export async function createGroup(formData: FormData) {
     redirect('/dashboard/groups')
 }
 
-export async function deleteGroup(groupId: string) {
+export async function deleteGroup(input: FormData | string) {
+    const groupId = typeof input === 'string' ? input : String(input.get('id') || '')
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    if (!user) {
+    if (!user || !groupId) {
         throw new Error('Unauthorized')
     }
 

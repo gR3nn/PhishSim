@@ -4,12 +4,12 @@ import { MarketingFooter, MarketingNav } from '@/components/marketing-nav'
 
 const offers = [
   {
-    name: 'Single campaign',
-    price: '€39',
-    note: 'one-time payment',
+    name: 'Custom campaign',
+    price: '€1',
+    note: 'per recipient',
     icon: Zap,
-    copy: 'Perfect for a class demo or a focused awareness check.',
-    features: ['Up to 100 recipients', 'One approved campaign', 'Full campaign analytics', '12 training scenarios'],
+    copy: 'Build one focused campaign and pay only for its exact audience.',
+    features: ['Any audience size', 'One approved campaign', 'Full campaign analytics', 'No subscription'],
   },
   {
     name: 'Starter',
@@ -47,7 +47,7 @@ export default function PricingPage() {
           <p className="eyebrow">Simple pricing</p>
           <h1>Start once or build an ongoing program.</h1>
           <p>
-            Choose a one-time campaign for a focused test, or a monthly plan for continuous awareness
+            Choose a pay-per-recipient campaign for a focused test, or a monthly plan for continuous awareness
             training.
           </p>
         </section>

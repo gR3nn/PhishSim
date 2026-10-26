@@ -3,14 +3,15 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { ADMIN_EMAILS, isAdmin } from '@/lib/authz'
+import { ADMIN_EMAILS, APP_ROLES, canManageUsers, canModerateUsers, getRole } from '@/lib/authz'
 
-async function assertAdmin() {
+async function assertUserManager(requireModeration = false) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle() : { data: null }
-  if (!user || !isAdmin(user.email, profile?.role)) throw new Error('Administrator access required')
-  return { supabase, user }
+  const role = getRole(user?.email, profile?.role)
+  if (!user || !canManageUsers(role) || (requireModeration && !canModerateUsers(role))) throw new Error('Administrator access required')
+  return { supabase, user, role }
 }
 
 function isProtected(email?: string) {
@@ -18,12 +19,12 @@ function isProtected(email?: string) {
 }
 
 export async function updateUserRole(formData: FormData) {
-  const { supabase, user } = await assertAdmin()
+  const { supabase, user, role: currentRole } = await assertUserManager()
   const id = String(formData.get('userId') || '')
   const email = String(formData.get('email') || '')
   const role = String(formData.get('role') || '')
-  if (!id || !['admin', 'client'].includes(role)) throw new Error('Invalid role update')
-  if (id === user.id && role !== 'admin') throw new Error('You cannot demote your current account')
+  if (!id || !APP_ROLES.includes(role as (typeof APP_ROLES)[number])) throw new Error('Invalid role update')
+  if (id === user.id && role !== currentRole) throw new Error('You cannot change your own role')
   if (isProtected(email) && role !== 'admin') throw new Error('Protected administrators cannot be demoted')
   const { error } = await supabase.from('profiles').update({ role }).eq('id', id)
   if (error) throw new Error(error.message)
@@ -31,7 +32,7 @@ export async function updateUserRole(formData: FormData) {
 }
 
 export async function setUserBan(formData: FormData) {
-  const { user } = await assertAdmin()
+  const { user } = await assertUserManager(true)
   const id = String(formData.get('userId') || '')
   const email = String(formData.get('email') || '')
   const shouldBan = String(formData.get('ban') || '') === 'true'
@@ -45,7 +46,7 @@ export async function setUserBan(formData: FormData) {
 }
 
 export async function deleteAccount(formData: FormData) {
-  const { user } = await assertAdmin()
+  const { user } = await assertUserManager()
   const id = String(formData.get('userId') || '')
   const email = String(formData.get('email') || '')
   if (id === user.id || isProtected(email)) throw new Error('This administrator account cannot be deleted')

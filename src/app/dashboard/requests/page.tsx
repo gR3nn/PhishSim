@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { Check, Clock3, Mail, ShieldCheck, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { isAdmin } from '@/lib/authz'
+import { canManageCampaigns, getRole } from '@/lib/authz'
 import { approveCampaign, rejectCampaign } from '../campaigns/actions'
 import { SubmitButton } from '@/components/submit-button'
 
@@ -9,7 +9,7 @@ export default async function RequestsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle() : { data: null }
-  if (!user || !isAdmin(user.email, profile?.role)) redirect('/dashboard')
+  if (!user || !canManageCampaigns(getRole(user.email, profile?.role))) redirect('/dashboard')
 
   const { data: requests } = await supabase.from('campaigns').select('id,title,status,created_at,user_id,groups(name,targets(count)),email_templates(name,subject)').order('created_at', { ascending: false })
   const queue = requests || []

@@ -42,6 +42,21 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
+    if (user && request.nextUrl.pathname.startsWith('/dashboard')) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+        const protectedAdmin = ['gradinarumanuel99@gmail.com', 'alexxperian@gmail.com'].includes((user.email || '').toLowerCase())
+        const role = protectedAdmin ? 'admin' : (profile?.role || 'client')
+        const path = request.nextUrl.pathname
+        if (role === 'support' && path === '/dashboard') return NextResponse.redirect(new URL('/dashboard/support', request.url))
+        const blocked =
+            (role === 'support' && !(path === '/dashboard' || ['/dashboard/support', '/dashboard/account'].some((allowed) => path === allowed || path.startsWith(`${allowed}/`)))) ||
+            (role === 'auditor' && (path.includes('/create') || path.includes('/edit') || ['/dashboard/groups', '/dashboard/templates', '/dashboard/landing-pages', '/dashboard/users', '/dashboard/services', '/dashboard/requests', '/dashboard/logs'].some((prefix) => path.startsWith(prefix)))) ||
+            (role === 'client' && ['/dashboard/users', '/dashboard/requests', '/dashboard/logs'].some((prefix) => path.startsWith(prefix))) ||
+            (role === 'campaign_manager' && path.startsWith('/dashboard/services')) ||
+            (role === 'admin' && path.startsWith('/dashboard/services'))
+        if (blocked) return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+
     // Redirect /login to /dashboard if already logged in
     if (request.nextUrl.pathname === '/login' && user) {
         return NextResponse.redirect(new URL('/dashboard', request.url))

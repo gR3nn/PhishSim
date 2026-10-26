@@ -20,7 +20,6 @@ export default async function EditLandingPage({
         .from('landing_pages')
         .select('*')
         .eq('id', id)
-        .eq('user_id', user.id)
         .single()
 
     if (!page) {

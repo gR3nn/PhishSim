@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Pencil } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
+import { deleteGroup } from '../actions'
+import { SubmitButton } from '@/components/submit-button'
 
 export default async function GroupDetailsPage({
     params,
@@ -44,6 +46,7 @@ export default async function GroupDetailsPage({
                         <Pencil size={14} />
                         Edit
                     </Link>
+                    <form action={deleteGroup.bind(null, group.id)}><SubmitButton label="Remove" className="button danger" confirmMessage="Delete this group and all of its recipients? This cannot be undone."><Trash2 size={14}/> Remove</SubmitButton></form>
                 </div>
             </section>
 
