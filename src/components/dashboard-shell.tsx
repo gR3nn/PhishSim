@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { Bell, CheckCircle2, ChevronRight, Clock3, CreditCard, FileText, Headphones, History, LayoutDashboard, LogOut, Menu, Send, ShieldCheck, Sparkles, Users, WalletCards, X } from 'lucide-react'
+import { LogoIcon } from '@/components/logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ROLE_LABELS, type AppRole } from '@/lib/authz'
 import { ActivityTracker } from '@/components/activity-tracker'
@@ -36,7 +37,7 @@ export function DashboardShell({ children, email, name, role, notifications, cre
     <>
       <div className="brand-block">
         <Link href="/dashboard" className="brand" onClick={() => setOpen(false)}>
-          <span className="brand-mark"><ShieldCheck size={21} /></span>
+          <LogoIcon size={34} idSuffix="sidebar" />
           <span>Phish<span>Safe</span></span>
         </Link>
         <button type="button" className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation"><X size={20} /></button>

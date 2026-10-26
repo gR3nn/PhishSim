@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PhishSafe">
+  <defs>
+    <linearGradient id="psShieldIcon" x1="15%" y1="15%" x2="88%" y2="85%">
+      <stop offset="0%" stop-color="#22C786" />
+      <stop offset="55%" stop-color="#38D698" />
+      <stop offset="100%" stop-color="#6EE7B7" />
+    </linearGradient>
+    <linearGradient id="psCheckIcon" x1="10%" y1="85%" x2="92%" y2="12%">
+      <stop offset="0%" stop-color="#29CC8B" />
+      <stop offset="50%" stop-color="#4CE0A6" />
+      <stop offset="100%" stop-color="#75E9BC" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="104" fill="#0B1118" />
+  <path fill="url(#psShieldIcon)" fill-rule="evenodd" clip-rule="evenodd" d="M 264 60 L 264 119.3 C 276.6 122.9 286 134.5 286 148 C 286 160.8 277.9 171.7 266.5 175.9 C 264 191 271 203 283 219 C 289 227 294 234 297 241 L 279 263 C 274 253 267 244 259 233 C 245 214 236 196 240.8 173.9 C 231.9 168.7 226 159.1 226 148 C 226 134.5 235.4 122.9 248 119.3 L 248 103 C 214 121 176 133 134 140 C 136 254 182 341 256 393 C 321 347 364 273 374 192 L 405 154 C 396 266 344 367 256 432 C 162 372 106 268 104 114 C 162 106 218 87 256 60 Z M 256 136 A 12 12 0 1 0 256 160 A 12 12 0 1 0 256 136 Z" />
+  <path fill="url(#psCheckIcon)" d="M 281 74 C 318 94 361 107 408 114 L 408 128 L 251 352 C 198 312 178 265 189 197 L 223 245 L 206 246 C 208 273 221 294 242 307 C 246 309 250 308 253 304 L 375 135 C 341 129 310 120 281 106 Z" />
+</svg>

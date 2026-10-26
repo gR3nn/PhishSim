@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, BarChart3, Check, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { ArrowRight, BarChart3, Check, Eye, EyeOff } from 'lucide-react'
+import { LogoIcon } from '@/components/logo'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
@@ -50,14 +51,14 @@ export default function LoginPage() {
   return <main className="auth-page">
     <section className="auth-story">
       <div className="auth-orb orb-one"/><div className="auth-orb orb-two"/>
-      <Link className="brand auth-brand" href="/"><span className="brand-mark"><ShieldCheck size={21}/></span><span>Phish<span>Safe</span></span></Link>
+      <Link className="brand auth-brand" href="/"><LogoIcon size={34} idSuffix="auth-brand"/><span>Phish<span>Safe</span></span></Link>
       <div className="auth-story-copy"><p className="eyebrow">Human-first security</p><h1>Turn risky clicks into <em>safer instincts.</em></h1><p>Plan ethical phishing simulations, protect every send with administrator approval, and see where training makes a difference.</p><ul><li><Check size={16}/> Permission-based campaign workflow</li><li><Check size={16}/> Live, privacy-conscious analytics</li><li><Check size={16}/> One login, role-aware experience</li></ul></div>
       <div className="auth-preview"><div><BarChart3 size={18}/><span><strong>+24%</strong><small>awareness growth</small></span></div><div className="preview-bars"><i/><i/><i/><i/><i/></div></div>
       <p className="auth-copyright">© 2026 PhishSafe · Educational security platform</p>
     </section>
     <section className="auth-form-side">
       <div className="auth-form-wrap">
-        <p className="auth-mobile-brand"><ShieldCheck size={20}/> PhishSafe</p>
+        <p className="auth-mobile-brand"><LogoIcon size={24} idSuffix="auth-mobile"/> PhishSafe</p>
         <p className="eyebrow">{isSignUp ? 'Create workspace access' : 'Welcome back'}</p>
         <h2>{isSignUp ? 'Create your account' : 'Sign in to your workspace'}</h2>
         <p className="auth-intro">{isSignUp ? 'Join as a client. Administrators are recognized automatically.' : 'The same secure login works for clients and administrators.'}</p>

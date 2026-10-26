@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { Menu, ShieldCheck, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
+import { LogoIcon } from '@/components/logo'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useState } from 'react'
 
@@ -11,9 +12,7 @@ export function MarketingNav() {
     <>
       <header className="marketing-nav">
         <Link href="/" className="brand marketing-brand">
-          <span className="brand-mark">
-            <ShieldCheck size={20} />
-          </span>
+          <LogoIcon size={44} idSuffix="marketing-nav" />
           <span>
             Phish<span>Safe</span>
           </span>
@@ -77,9 +76,7 @@ export function MarketingFooter() {
     <footer className="marketing-footer">
       <div>
         <span className="brand">
-          <span className="brand-mark">
-            <ShieldCheck size={18} />
-          </span>
+          <LogoIcon size={30} idSuffix="marketing-footer" />
           <span>
             Phish<span>Safe</span>
           </span>
