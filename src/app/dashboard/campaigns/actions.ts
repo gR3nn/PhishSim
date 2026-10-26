@@ -94,6 +94,9 @@ export async function launchCampaign(formData: FormData) {
     }
 
     if (!hasUnlimitedAccess) {
+        // Decide monthly-vs-credit from the PRE-insert remainingMonthly: a user exactly at the
+        // monthly limit (remainingMonthly === 0) burns one custom credit; anyone with monthly room
+        // left does not. Computed once above so the just-inserted campaign can't flip the decision.
         await consumeAllowance(user.id, recipientCount, entitlement?.remainingMonthly === 0)
     }
 

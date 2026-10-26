@@ -1,141 +1,154 @@
-# Phase 3 Implementation Plan — Correctness & Consistency Cleanup
+# Implementation Plan — Typography Fix + Bug-Hunt Overhaul (PhishSafe)
 
-PhishSafe (Next.js 16 App Router + TypeScript + Supabase + Tailwind v4). Work on `main`, no worktree. Phases 1 (CRUD + billing) and 2 (visual polish + motion) are DONE — do not redo them. This phase implements Area 5 (correctness/bugs) and the P2 recommendations from `.agents/tasks/audit-findings.md`.
+Scope: FIX THE TYPOGRAPHY first (the user's loudest complaint), then a fresh bug-hunt / overhaul pass. Work on `main`, no worktree. Keep the semantic-class CSS design system in `src/app/globals.css`. No new UI/CSS/animation libraries. No Tailwind-utility restyling of existing screens.
 
-## Design decisions recorded up front
+Build/verify commands (from `package.json`, Node pinned `>=22.23.4 <23` in `.nvmrc`):
+- Type/build check: `npm run build` (Next.js 16 `next build`, runs TS + ESLint).
+- Lint only (faster inner loop): `npm run lint`.
+- There is no unit-test runner configured; `npm run build` is the authoritative gate. Also do a manual visual check with `npm run dev` on port 3000 for the type-scale and dark-mode / breakpoint verification items that the build cannot catch.
 
-- **Tracking (item 3): canonical paths.** The pixel route `api/track/[campaignId]/[email]/pixel/route.ts` stays the SOLE logger of `opened`. The pretty public landing route `[campaignName]/[groupName]/[slug]/page.tsx` becomes the SOLE logger of `clicked` (one insert, not two). Campaign identity is carried on the emitted link as a new query param `c=<campaignId>` (stable UUID) added in `approveCampaign`; the landing page resolves the campaign by that id first and only falls back to the existing title lookup when `c` is absent — this keeps links already sitting in inboxes working. Rationale: the pretty path is the one actually substituted for `{{link}}` today, so extending it (rather than switching to `/r/`) is the smallest change that preserves the user-visible flow; an `id` query param is additive and backward-compatible, whereas restructuring the route params would break in-flight links.
-- **`/r/[campaignId]/[email]` route (item 3): remove it.** A code-wide search found zero references to `/r/` anywhere except the audit doc; `approveCampaign` never builds a `/r/` link. It is dead. Deleting it leaves exactly one canonical click path (the landing route). The fake-login special-case (slug `fake-login`) already lives in the landing route, so no capture wiring is lost.
-- **Event-logging contract (after this phase):**
-  - `sent` — inserted once per recipient by `approveCampaign` on delivery.
-  - `opened` — inserted by the pixel route only (`/api/track/<campaignId>/<email>/pixel`).
-  - `clicked` — inserted by the landing route only, once per visit that carries a target email.
-  - `compromised` — inserted by `fake-login/actions.ts` on form submit (unchanged).
-- **`is_signalsafe_admin` rename (item 4): do it via a new additive migration.** The function is referenced only in SQL (migration `20261021`), never in TS. A new migration creates `public.is_platform_admin()`, drops+recreates the one trigger function and all 9 admin policies to call it, then drops the old function. This is clean and does not regress RLS. New file only — existing migrations are not edited.
-
----
-
-# Implementation Plan
-
-- [ ] 1. Add owner-scope filter to `deleteTemplate`.
-      In `deleteTemplate`, fetch the current user (mirror `updateTemplate`: `const { data: { user } } = await supabase.auth.getUser(); if (!user) throw new Error('Unauthorized')`) and add `.eq('user_id', user.id)` to the delete. Do NOT change the function signature (still `(templateId: string)`) or the `redirect('/dashboard/templates')`.
-      Files: `src/app/dashboard/templates/actions.ts`
-      Verify: `npm run lint` passes and `npm run build` compiles. Confirm by reading that the delete now chains `.eq('id', templateId).eq('user_id', user.id)` exactly like `updateTemplate`.
-
-- [ ] 2. Add owner-scope filter to `deleteGroup`.
-      In `deleteGroup`, fetch the current user (mirror `updateGroup`'s auth check), and add `.eq('user_id', user.id)` to the `groups` delete. Keep signature `(groupId: string)` and `redirect('/dashboard/groups')`. Targets still cascade via the `targets.group_id … on delete cascade` FK in `schema.sql`, so no explicit target delete is needed.
-      Files: `src/app/dashboard/groups/actions.ts`
-      Verify: `npm run build` compiles; `npm run lint` passes. Read-confirm the delete chains `.eq('id', groupId).eq('user_id', user.id)`.
-
-- [ ] 3. Remove the "assume cascade" prototype comment in `deleteCampaign`.
-      Delete the three prototype comment lines (~"Delete campaign (cascade should handle events…", "Assuming foreign keys…", "For this prototype, we'll assume cascade or just delete campaign."). Replace with a single accurate note, e.g. `// events rows cascade-delete via the events.campaign_id FK (on delete cascade in schema.sql)`. NO logic change — the existing `.eq('id', campaignId).eq('user_id', user.id)` delete and `redirect('/dashboard')` stay.
-      Files: `src/app/dashboard/campaigns/actions.ts`
-      Verify: `npm run build` compiles. Read-confirm no behavior lines changed, only comments.
-
-- [ ] 4. Emit the campaign id on tracking links in `approveCampaign`.
-      In `approveCampaign` (same file), add the stable campaign id to the generated link as a query param alongside the existing `t`. Change the `trackingLink` construction so the URL is `${baseUrl}${trackingPath}?t=${encodeURIComponent(target.email)}&c=${campaign.id}`. Keep everything else identical: the pretty `trackingPath` (`/${encodeURIComponent(campaign.title)}/${encodeURIComponent(group.name)}/${slug}`), the `{{link}}` substitution, the hidden pixel `<img>`, and the `/fake-login` slug handling. Do NOT touch the pixel link. This is the only change to the emitted email links; note in the commit message that links now include `&c=<id>`.
-      Files: `src/app/dashboard/campaigns/actions.ts`
-      Verify: `npm run build` compiles. Read-confirm the link string now ends with `&c=${campaign.id}` and `t=` is preserved.
-
-- [ ] 5. Rewrite the public landing route to resolve by campaign id and log only `clicked`.
-      In `[campaignName]/[groupName]/[slug]/page.tsx`: (a) read a new `c` search param (`const campaignIdParam = resolvedSearchParams.c as string | undefined`). (b) Resolve the campaign by id first: if `campaignIdParam` present, `select('id,user_id').eq('id', campaignIdParam).maybeSingle()`; else fall back to the EXISTING title lookup (`.eq('title', decodedCampaignName).order('created_at',{ascending:false}).limit(1)`) for backward-compat with links already sent. Derive `campaignId`/`campaignOwnerId` from whichever resolved. (c) In the `slug === 'fake-login'` branch, replace the two-event insert array with a SINGLE `clicked` insert (drop the `opened` insert); keep the `notFound()` guard and the `FakeLoginPage` render with the same `fakeLoginParams` promise. (d) In the standard-landing branch keep the `landing_pages` lookup by `url_slug` + `campaignOwnerId` and the `dangerouslySetInnerHTML` render (preserve the XSS-by-design note); replace the clicked-then-opened double insert with a SINGLE `clicked` insert. Preserve `t=email` attribution and `notFound()` behavior. Do not change which landing page renders.
-      Files: `src/app/[campaignName]/[groupName]/[slug]/page.tsx`
-      Verify: `npm run build` compiles. Read-confirm: no `event_type: 'opened'` remains in this file; campaign resolved by `c` first with title fallback; `t` still used for `target_email`.
-
-- [ ] 6. Delete the dead `/r/` redirect tracking route.
-      Remove `src/app/r/[campaignId]/[email]/route.ts` and its now-empty parent directories (`src/app/r/[campaignId]/[email]/`, `src/app/r/[campaignId]/`, `src/app/r/`). Confirmed dead by code-wide search (no `/r/` references outside the audit doc; `approveCampaign` builds the pretty path, not `/r/`).
-      Files: delete `src/app/r/[campaignId]/[email]/route.ts` (+ empty dirs)
-      Verify: `grep -rn "/r/" src` returns nothing; `npm run build` compiles with no missing-route errors.
-
-- [ ] 7. Create the admin-function rename migration.
-      New migration file renaming `public.is_signalsafe_admin()` → `public.is_platform_admin()`. DDL, in order: (1) `create or replace function public.is_platform_admin()` with the SAME body/signature as the current `is_signalsafe_admin` (returns boolean, language sql stable security definer, same email list + profiles role check). (2) `create or replace function public.protect_profile_role()` with its existing body but calling `public.is_platform_admin()` instead of the old name. (3) For each of the 9 admin policies in `20261021` (`Admins view all profiles`, `Admins update roles`, `Admins view all campaigns`, `Admins update all campaigns`, `Admins view all groups`, `Admins view all targets`, `Admins view all templates`, `Admins create campaign events`, `Admins view all events`): `drop policy if exists "<name>" on <table>;` then recreate it verbatim with `public.is_platform_admin()`. (4) `drop function if exists public.is_signalsafe_admin();` last, once nothing references it. Add a top comment: "Run this in the Supabase SQL editor — the app cannot run DDL." Do NOT edit existing migrations.
-      Files: `supabase/migrations/20261201_rename_admin_function.sql` (new)
-      Verify: read-review that every policy dropped is recreated with identical USING/WITH CHECK expressions (only the function name changes) and the old function is dropped only after recreating both dependent function and all policies. (Cannot run DDL locally — the user must apply it in Supabase; flag this in the final summary.)
-
-- [ ] 8. Fix the raw-`{kind}` eyebrow on resource cards (display only).
-      In `resource-library.tsx` the card body renders `<p className="eyebrow">{kind}</p>`, showing the raw word "audience"/"template"/"page". Replace it with the human label already defined in `config[kind].eyebrow` (audience→"Groups", template→"Email Templates", page→"Landing Pages") — use `details.eyebrow`. Do NOT change the `ResourceKind` type, the `kind` prop values, or any keys passed by callers.
-      Files: `src/components/resource-library.tsx`
-      Verify: `npm run build` compiles. Read-confirm the card eyebrow uses `details.eyebrow`, and `kind` is still used only for the `resource-icon ${kind}` class and config lookup.
-
-- [ ] 9. Standardize terminology-residue copy (display strings only).
-      Replace invented/old vocabulary with plain professional wording across these files — DISPLAY TEXT ONLY, no prop/key/class/behavior changes:
-      - `src/app/dashboard/landing-pages/create/page.tsx`: in `starterHtml`, change the eyebrow line "PhishSafe learning moment" to a neutral label (e.g. "PhishSafe security simulation" or "Simulation notice"). Keep the rest of the starter HTML intact.
-      - `src/app/dashboard/campaigns/create/page.tsx`: relabel the group field "Authorized audience" → "Recipient group" (and its placeholder "Choose an audience" → "Choose a group"); relabel "Learning landing page" → "Landing page"; in the "Training scenario" helper text change "authorized audience" → "recipient group". Keep `name`/`id`/`htmlFor` attributes (`groupId`, `landingPageUrl`) unchanged.
-      - `src/app/dashboard/DashboardClient.tsx`: the Click-rate StatCard `meta` is `` `${stats.clicked} learning moments` `` — change to a neutral phrase (e.g. `` `${stats.clicked} link clicks` ``). Leave the score-legend `learning` className as-is (it's a CSS class, not visible copy).
-      - `src/app/page.tsx` (public home): "turn every risky click into a coaching moment" → neutral wording (e.g. "turn every risky click into a teachable moment" or "…into a learning opportunity" — avoid "coaching moment"); the workflow card `<h3>Build an audience</h3>` → "Build a recipient group" and its body "Write recipients manually or upload a file…" stays. Standardize on "Groups/Recipient group" and plain "landing page".
-      Files: the four files above.
-      Verify: `npm run build` compiles; `npm run lint` passes. `grep -rn "learning moment\|coaching moment\|Authorized audience\|Learning landing page" src` returns nothing.
-
-- [ ] 10. Confirm Title-case on the landing-pages list label.
-      `src/app/dashboard/landing-pages/page.tsx` already passes `createLabel="New Landing Page"` (Title Case) to both `ResourceLibrary` and `CreateResourceDialog`. Verify in-context it matches siblings ("New Email Template", "New Group"); if any lowercase "New landing page" remains anywhere, Title-case it. This item is a verification/no-op unless a stray lowercase instance is found.
-      Files: `src/app/dashboard/landing-pages/page.tsx` (only if a fix is needed)
-      Verify: `grep -rn "New landing page" src` returns nothing (lowercase variant absent).
-
-- [ ] 11. Investigate and fix the stray circular "N" element on public pages (NEEDS IN-BROWSER VERIFICATION).
-      Reported: a small circular "N" avatar/bubble floats near the left edge, mid-page on the public home page (below the logo/customer strip). Static reading did NOT conclusively locate it — the hero mockup `<aside>` in `src/app/page.tsx` renders a `mini-logo` + five empty `<i/>` bars (decorative, inside the product card, not a left-edge bubble), and `brand-mark`/`avatar` styles belong to nav/dashboard. The coder MUST run the dev server (`npm run dev`, port 3000), open `/` in a browser, and visually confirm the stray "N". Trace its source: inspect `src/app/page.tsx`, `src/components/marketing-nav.tsx`, `src/app/layout.tsx`, and `src/app/globals.css` (look for an ::before/::after pseudo-element, a leaked dashboard/account avatar, or a theme-toggle/logo fragment positioned absolutely). If it's a leaked/misplaced element, remove it or constrain it to the dashboard; if it's intended decoration, position/style it so it reads as intentional. Do NOT declare it "already fine" from source alone.
-      Files: likely one of `src/app/page.tsx`, `src/components/marketing-nav.tsx`, `src/app/globals.css` (determined during investigation)
-      Verify: re-open `/` in the browser and confirm the stray "N" is gone (or now looks intentional); take a screenshot. `npm run build` compiles.
-
-- [ ] 12. De-minify one-line JSX for maintainability (formatting only; do LAST).
-      Reformat collapsed single-line JSX into readable multi-line JSX. PURE formatting — no changes to markup semantics, class names, or text content beyond the terminology edits in items 8–9. Priority order (do the files you already touched in 8–9 first, then the rest if time allows):
-      - Public pages: `src/app/page.tsx`, `src/app/features/page.tsx`, `src/app/pricing/page.tsx`, `src/app/about/page.tsx`, `src/components/marketing-nav.tsx`.
-      - Dashboard heavy one-liners: `src/components/resource-library.tsx`, `src/app/dashboard/requests/page.tsx`, `src/app/dashboard/users/page.tsx`, `src/app/dashboard/services/page.tsx`, and the big `<section>` one-liners in `src/app/dashboard/DashboardClient.tsx`.
-      Reformat incrementally and rebuild between files so a formatting slip is caught early. If constrained, prioritize items 1–11 and only de-minify files already edited.
-      Files: the files listed above.
-      Verify: `npm run build` compiles and `npm run lint` passes after each file; `git diff --stat` shows only the expected files; spot-check the rendered public pages are visually identical.
-
-- [ ] 13. Final full verification.
-      Run the complete build and lint. Ensure no temporary files were left behind and the dev server started for item 11 is stopped.
-      Files: none.
-      Verify: `npm run build` exits 0 and `npm run lint` exits 0; `git status` shows only intended changes.
+Exploration confirmed several audit "P2" items are ALREADY FIXED in prior phases and must NOT be re-done:
+- No `alert()` remains in `src/` (grep clean) — error UIs already use `.auth-message`/inline patterns.
+- `CampaignDetailsClient.tsx` `Target` type is already `{ id, email, name? }` (the `first_name/last_name` mismatch is gone).
+- `deleteGroup` / `deleteTemplate` already carry `.eq('user_id', user.id)` ownership filters (templates also block defaults + check `user_id`).
+- `updateGroup` already manages recipients/targets, not just the name.
+- The Stripe webhook route (`src/app/api/webhooks/stripe`) and landing-page `[id]` detail + `[id]/edit` routes already exist.
+- `deleteCampaign` already has the ownership filter and a correct cascade comment.
+Do not "fix" these; they are done.
 
 ---
 
-## Backward-compatibility / behavior-change notes
+## PHASE A — TYPOGRAPHY (do this first)
 
-- **Emitted links change** (item 4): new approvals send links with `&c=<campaignId>`. Links already in inboxes (no `c`) still work via the title fallback in item 5 — confirmed preserved.
-- **Event logging changes intentionally** (items 4–5): a single landing visit now logs ONE `clicked` event (was `clicked`+`opened`); `opened` comes only from the pixel. Analytics stop double-counting. The fake-login special case logs one `clicked` (was `clicked`+`opened`). `sent`/`compromised` unchanged.
-- **Migration is not auto-applied** (item 7): the renamed-admin-function migration must be run by the user in the Supabase SQL editor; the app cannot run DDL. Until applied, the old `is_signalsafe_admin` function keeps existing RLS working, so there is no mid-deploy regression window.
+### A1. Primary font bug: apply the Geist font-family to the document
 
-## What must NOT change
+- [ ] 1. Set the base font-family so the app actually renders in Geist instead of the browser default serif.
+      Root cause (confirmed): `layout.tsx` puts `${geistSans.variable} ${geistMono.variable} antialiased` on `<body>` and `globals.css` maps them in `@theme inline` to `--font-sans`/`--font-mono`, but NOTHING sets `font-family` on `html`/`body`. There are two `body { }` rules (globals.css line ~122 `@apply bg-background text-foreground`, and line ~143 `margin/background/color`) and neither sets a font. Fix in the second, plain-CSS body rule (globals.css ~line 143): add
+      `font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;`
+      plus base typographic defaults on the same rule: `font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-feature-settings: "cv11", "ss01"` (drop the feature-settings if it changes glyphs oddly in dev — optional). Do NOT remove the `--font-geist-sans`/`--font-geist-mono` theme mappings or the `<body>` variable classes in `layout.tsx` (preserve env/var names and the `antialiased` class).
+      Files: `src/app/globals.css`
+      Verify: `npm run build` passes; then `npm run dev` and confirm in DevTools the computed `font-family` on `<body>` resolves to the Geist variable (a `__Geist_*` family), not Times/serif. Headings and body are visibly sans-serif.
 
-- Safety framing, admin-approval workflow, "credentials are NOT stored" copy, sandboxed `sandbox=""` preview iframes, and the `{{link}}` email token.
-- `.env`, env var names, and the DASHSCOPE/Stripe/SMTP/Supabase config.
-- The semantic-class CSS design system — no Tailwind-utility styling, no new dependencies, no new motion.
-- The fake-login page markup/behavior (`src/app/fake-login/page.tsx`, `src/app/fake-login/actions.ts`) stays as-is.
-- Action signatures and call sites for `deleteTemplate`, `deleteGroup`, `deleteCampaign`.
-- `kind` prop values, object keys, and component props in `resource-library.tsx` and its callers (item 8 is display-only).
-- Phase 1 billing/CRUD logic and Phase 2 rebuilt screens, except the specific terminology (items 8–9) and formatting (item 12) edits listed.
-- Existing migration files (`20261021`, `20261101`, `20261115`) — item 7 adds a NEW file only.
-- The public landing page's `dangerouslySetInnerHTML` render (intentional XSS for a phishing simulator) — keep it and its note.
+- [ ] 2. Confirm/declare the mono stack where monospace is intended.
+      These selectors already reference `var(--font-geist-mono),monospace`: `.recipient-editor`, `.format-example p`, `.studio-code`, `.code-block` (globals.css lines ~358, ~359, ~363, ~515). Leave them as-is (they are correct). Only add `font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;` to any additional code/`<pre>`/`<code>` surface you find that currently inherits the (now-Geist-sans) body font but is meant to be monospace. If none beyond the four above, make no change here.
+      Files: `src/app/globals.css` (only if an un-monospaced code surface is found)
+      Verify: `npm run dev` — the landing-page studio code textarea (`.studio-code`), the read-only `.code-block` on detail pages, and the recipient editor render in a monospace face.
 
-## Project build/test commands (discovered)
+- [ ] 3. Verify Geist heavy weights render; add weight config only if needed.
+      The CSS uses `font-weight` 600/700/750/800/900 (e.g. `.brand` 750, `.nav-eyebrow`/`.avatar` 800, `.plan-label` 900). Geist is a variable font, so `next/font/google` `Geist(...)` normally covers the full axis. In `npm run dev`, inspect a 900 element (e.g. `.plan-label`, `.workflow-step::before`) and an 800 element and confirm they render heavier than 700. If (and only if) they clamp to a lighter weight, add an explicit `weight`/axis config to the `Geist({...})` call in `layout.tsx` (e.g. `weight: ["400","500","600","700","800","900"]`) — otherwise leave `layout.tsx` unchanged.
+      Files: `src/app/layout.tsx` (only if weights clamp)
+      Verify: visual weight hierarchy is distinct across 600→900; `npm run build` still passes if layout.tsx was touched.
 
-- Build: `npm run build` (Next 16 `next build`).
-- Lint: `npm run lint` (eslint via `eslint-config-next`). Confirmed clean on the current `main`.
-- There is no unit-test framework in this repo (no test script/dependency); verification is build + lint + targeted in-browser check for the visual item (11). Grep checks are used only as a secondary read-confirmation, never as the primary verification.
+### A2. Professional type-scale pass
+
+Design decision — a small, restrained scale (reasoning: the current CSS has ~126 font-size declarations at 6–10px which read as cramped/unprofessional; raise the floor to ~11px and give meta/body/headings consistent steps). Target tokens (apply as literal px values; do NOT introduce new CSS custom properties or restyle via Tailwind):
+
+| Role | Old typical | New target | line-height | notes |
+|---|---|---|---|---|
+| micro/legal/footer fine print | 6–8px | **11px** | 1.5 | footer, copyright, tooltips, timestamps |
+| eyebrow / uppercase label / table header | 7–10px | **11px** (letter-spacing ~.6–1px kept) | 1.3 | `.eyebrow`, `.nav-eyebrow`, `.app-table th`, `.*-stats span`, status/ticket pills |
+| meta / caption / secondary | 8–10px | **12px** | 1.5 | `.stat-card > small`, `.campaign-name span`, `.muted`, card descriptions, `.field small` |
+| body / form text / table cells | 10–11px | **14px** | 1.55 | `.app-table td`, `.field input/select/textarea`, `.page-heading p`, paragraph copy |
+| small heading / card title | 13–15px | **15–16px** | 1.3 | `.form-section h2`, `.resource-copy h2`, `.plan-card h2`, `.data-panel-head h2` |
+| section heading | 15–18px | **18–20px** | 1.25 | `.panel-heading h2`, `.thread-head h2`, `.settings-title h2` |
+| page H1 / hero | clamp already OK | keep existing `clamp()` | existing | `.page-heading h1`, `.auth-story-copy h1`, `.hero-copy h1`, `.section-intro h2` — leave the big clamps |
+
+Mapping rule of thumb to apply consistently: `6px→11`, `7px→11`, `8px→11` (labels/eyebrows/pills) or `→12` (captions/body-meta — use judgment per role above), `9px→12`, `10px→12` (meta) or `→14` (body/paragraph), `11px→12` (labels) or `→14` (inputs/body). Keep `12px`+ heading-ish sizes; nudge the 13–15px card/section headings up by 1–2px only where it improves hierarchy. NEVER go below 11px for any readable text.
+
+- [ ] 4. Raise the global tiny-text floor across the shell, tables, forms, stat cards, pills and nav.
+      Edit `src/app/globals.css` font-size values per the table/mapping above. This is ONE item covering the whole file (same change pattern repeated); it is large but a single coherent edit. Prioritized selectors to catch (non-exhaustive — sweep the whole file for `font-size:` ≤10px and 11px labels): `.nav-eyebrow`, `.nav-link`, `.account-copy strong/span`, `.sidebar-status`, `.sidebar-signout`, `.topbar-kicker`, `.topbar-title`, `.role-pill`, `.notification-*` (head/item/empty/footer), `.eyebrow`, `.page-heading p`, `.button`, `.attention-banner *`, `.stat-top`, `.stat-card > small`, `.chart-*`, `.bar-column small`, `.score-*`, `.campaign-name *`, `.status-badge`, `.empty-state *`, `.form-section > p`, `.field label/input/small`, `.data-panel-head *`, `.app-table th/td`, `.plan-card/.price/.feature-list`, `.admin-user-stats *`, `.review-* `, `.profile-*`, `.settings-*`, `.library-summary`, `.resource-* `, `.audience-* `, `.format-* `, `.landing-*`/`.studio-*`/`.editor-tabs`, `.auth-* `, all `.marketing-*`/`.hero-*`/`.feature-showcase`/`.public-*`/`.workflow-*`/`.trust-*`, `.create-modal-*`, wallet/cart/support/audit blocks (`.credit-pill`, `.wallet-*`, `.coupon-*`, `.cart-*`, `.support-*`, `.ticket-*`, `.audit-*`), and the `.center-pad`/`.skeleton`/`.code-block` state blocks. Keep letter-spacing on uppercase labels but reduce slightly if 11px looks spaced-out. Do not change colors, spacing, fl/grid layout, or weights in this item — font-size (and paired line-height where a block sets one) only.
+      Files: `src/app/globals.css`
+      Verify: `npm run build` passes. Then `npm run dev`: walk dashboard, a resource library, campaign/template/group detail, the two studios (audience builder + landing studio), services/pricing, login, and the public marketing pages. Confirm no text below ~11px remains and hierarchy reads cleanly.
+
+- [ ] 5. Protect layout at the three breakpoints and in dark mode after the size bump.
+      Larger type can overflow fixed-height bars and narrow columns. Specifically re-check and, if needed, adjust ONLY to prevent clip/overflow (keep changes minimal): the `.topbar` (72px) title/kicker/role-pill, the fixed-width `.desktop-sidebar` (256px) nav links + account card ellipsis, `.app-table` headers/cells (min-width 650px scroller), `.stat-card` numbers/captions (min-heights 138/124/108px), the two-column `.audience-builder-layout` / `.landing-studio` / `.settings-grid` / `.request-layout`, `.plan-card`/`.public-pricing-grid` cards, and `.status-badge`/pill min-widths. Review the existing media queries at **1050px**, **760px**, **540px** (and the 900/600px wallet/support ones) and bump any now-too-small overrides there to match the new floor (e.g. `.topbar-title` 12px→ at least 13–14px; `.library-summary p` 6px→11px). Nothing should wrap awkwardly, clip, or trigger horizontal scroll on the main shell.
+      Files: `src/app/globals.css`
+      Verify: `npm run dev`, resize across 1200 / 1050 / 900 / 760 / 600 / 540 / 375 px and toggle the theme (default is dark). No overflow/clipping in topbar, sidebar, tables, stat cards, studios, or pricing cards in either theme. `npm run build` passes.
 
 ---
 
-## Phase 3 verification note (recorded so the reviewer need not re-run)
+## PHASE B — BUG HUNT / OVERHAUL
 
-Run on `main` after implementing all items. The Phase 2 review (`review.json`/`review.md`) was APPROVED with only non-blocking findings — nothing blocking to fix — so this iteration implemented the full Phase 3 scope.
+Each item is independently buildable. Items are ordered safe-first. "Note only" items must be documented, not code-changed.
 
-- **Build:** `npm run build` → exit 0 (after `rm -rf .next` to clear a stale generated type that still referenced the deleted `/r/` route; a fresh build is clean and the route list no longer contains `/r/`).
-- **Lint:** `npm run lint` → exit 0.
-- **Owner-scoped deletes:** `grep -n ".eq('user_id'" src/app/dashboard/templates/actions.ts src/app/dashboard/groups/actions.ts` confirms `deleteTemplate` and `deleteGroup` now chain `.eq('id', …).eq('user_id', user.id)` after an `if (!user) throw`.
-- **Tracking:**
-  - Old link shape: `{baseUrl}/{title}/{group}/{slug}?t=<email>`.
-  - New link shape: `{baseUrl}/{title}/{group}/{slug}?t=<email>&c=<campaignId>` (built in `approveCampaign`).
-  - Landing route resolves campaign by `c` first (`.eq('id', c).maybeSingle()`), falls back to the legacy title lookup when `c` is absent → old in-flight links still work.
-  - `grep -c "event_type: 'opened'"` in the landing route → `0`. Exactly one `clicked` is inserted per visit (both the fake-login branch and the standard branch). The pixel route (`/api/track/<id>/<email>/pixel`) remains the sole `opened` logger. Double-insert eliminated.
-  - Dead `/r/[campaignId]/[email]/route.ts` deleted (confirmed zero `/r/` references in `src/`); one canonical click path remains.
-- **Terminology:** no raw `{kind}` eyebrow (resource cards now use `details.eyebrow`); `grep` for "learning moment", "coaching moment", "Authorized audience", "Learning landing page", "New landing page" → none in `src/`. `landing-pages/page.tsx` already Title-cased "New Landing Page".
-- **Admin-function rename:** NEW additive migration `supabase/migrations/20261201_rename_admin_function.sql` creates `public.is_platform_admin()`, repoints `protect_profile_role()` and all 9 admin policies, then drops `is_signalsafe_admin()`. Existing migrations untouched. **MUST be run by a human in the Supabase SQL editor** (the app cannot run DDL). RLS behaviour is unchanged until applied (old function keeps working), so no mid-deploy regression window.
-- **Stray "N" element (item 11):** investigated with a running production server (`next start`) + headless Chromium. Captured full-page screenshots of `/` in dark, light, and mobile widths, plus `/features`; and ran a DOM probe (CDP `Runtime.evaluate`) searching for any element whose text is exactly "N", any `.avatar`/`.account-card` (the dashboard elements that render an initial letter), and any small absolutely/fixed-positioned circular element near the left edge mid-page. Result: **no stray "N" exists in the current code.** The only brand marks on public pages are the nav logo (top) and footer logo (bottom), both the ShieldCheck icon with empty text; `.mini-logo` sits inside the product mockup on the right. The leaked dashboard avatar the finding described is not present on the marketing pages (which render only `MarketingNav`/`MarketingFooter`). It was already resolved by the Phase 2 semantic rebuild or was a theme/state-specific artifact that no longer reproduces. No code change was made for item 11 to avoid introducing a regression; root cause documented here.
-- **De-minify (items 6/12):** reformatted `src/app/page.tsx`, `features/page.tsx`, `pricing/page.tsx`, `about/page.tsx`, `src/components/marketing-nav.tsx`, and `src/components/resource-library.tsx` from collapsed one-line JSX to readable multi-line. Pure formatting (plus the item-8/9 terminology edits in those files). Verified visually: the `/features` screenshot post-reformat is identical to the pre-reformat layout. The lower-priority dashboard one-liners (`requests/page.tsx`, `users/page.tsx`, `services/page.tsx`, big `DashboardClient.tsx` sections) were left as-is per the "prioritize 1–11, de-minify only files already edited if constrained" guidance.
-- **Preserved:** `{{link}}` token, `sandbox=""` previews, `dangerouslySetInnerHTML` landing render + its note, credential-not-stored copy, admin-approval workflow, `.env`, env var names, route/field names (only the additive `&c=` tracking identifier was added, documented above).
+- [ ] 6. Add missing `type="button"` to non-submit buttons (accessibility/correctness; prevents accidental form submits).
+      13 files contain `<button>` without an explicit `type` (heuristic grep). Audit each and add `type="button"` to every button that is NOT the primary submit of a `<form>` (leave real submit buttons as `type="submit"` or add it explicitly). Known files: `src/app/dashboard/account/AccountSettings.tsx` (2), `src/app/dashboard/DashboardClient.tsx` (1), `src/app/dashboard/groups/create/page.tsx` (1), `src/app/dashboard/landing-pages/create/page.tsx` (1), `src/app/dashboard/logs/page.tsx` (1), `src/app/dashboard/services/CartPanel.tsx` (5), `src/app/dashboard/users/AccountActionButton.tsx` (1), `src/app/login/page.tsx` (3), `src/app/sign-in-simulation/page.tsx` (1), `src/components/ai-html-editor.tsx` (1), `src/components/dashboard-shell.tsx` (6), `src/components/marketing-nav.tsx` (1), `src/components/theme-toggle.tsx` (1). This is ONE item (same pattern across files). Read each button's context before editing — do not change a genuine submit button's semantics.
+      Files: the 13 files listed above.
+      Verify: `npm run build` passes; `npm run dev` smoke — toggling theme, opening the cart/notification menus, and clicking in-form helper buttons (e.g. "show password") no longer submits/navigates unexpectedly.
 
-### Still needs runtime verification by the user
-1. Apply `20261201_rename_admin_function.sql` in Supabase, then confirm admin RLS still works (admins can view all profiles/campaigns/etc.; `is_platform_admin()` exists, `is_signalsafe_admin()` is gone).
-2. Send a real approved campaign and confirm each landing visit logs exactly one `clicked` (and the pixel logs `opened`), with the `&c=` id resolving the correct campaign and old `?t=`-only links still resolving via the title fallback.
+- [ ] 7. Verify the entitlement allowance-boundary decision is computed once pre-insert, and tighten if needed.
+      The audit flagged `consumeAllowance` deciding monthly-vs-credit against POST-insert counts. Current code (`src/app/dashboard/campaigns/actions.ts` `launchCampaign`) already reads `getEntitlement` ONCE before insert and passes `entitlement?.remainingMonthly === 0` as the `useCustomCredit` flag into `consumeAllowance`, and `consumeAllowance` in `src/lib/entitlements.ts` no longer re-reads entitlement — so the boundary decision IS made on pre-insert state. CONFIRM this by reading both functions. If confirmed correct, make NO behavioral change; add a one-line comment at the `consumeAllowance(...)` call noting the decision uses the pre-insert `remainingMonthly` so a user exactly at the monthly limit does not wrongly burn a credit. If a real off-by-one remains (e.g. the `> 0` vs `>= 0` boundary or `recipientCount` typing lets a credit be consumed while monthly still covers it), fix it minimally so the decision is: consume a custom credit only when the monthly quota could NOT have covered this create (`remainingMonthly === 0`). Keep behavior otherwise identical. Do not change the quota numbers, the UTC-month window, or `refundAllowance`.
+      Files: `src/app/dashboard/campaigns/actions.ts`, `src/lib/entitlements.ts` (comment/minimal-fix only)
+      Verify: `npm run build` passes. Reason through the boundary on paper in the PR/notes: starter quota 2 → with `remainingMonthly` 1 before insert, no credit consumed; with 0 before insert and a custom credit present, exactly one credit consumed.
+
+- [ ] 8. Resolve the redundant landing-pages SQL to remove canonical-source confusion (safe, docs/removal only).
+      `supabase/migrations/create_landing_pages.sql` re-declares the `landing_pages` table already defined in `supabase/schema.sql` (both use `create table if not exists`, so it is harmless at runtime but confusing). It is NOT in the README's ordered migration list (README lists only `schema.sql` + the five dated migrations), so nothing references it as a required step. Resolve by deleting `supabase/migrations/create_landing_pages.sql` (the table lives in `schema.sql`, which is the canonical base). Before deleting, grep the repo to confirm no script/doc references this filename. If any reference exists, instead keep the file and add a top-of-file comment: `-- DEPRECATED: landing_pages is defined in schema.sql; this file is retained only for historical DBs and is not part of the ordered migration sequence.` Do not alter `schema.sql`.
+      Files: delete (or annotate) `supabase/migrations/create_landing_pages.sql`
+      Verify: `grep -rn "create_landing_pages" .` returns no code/doc references (outside this plan). `npm run build` unaffected (SQL is not compiled).
+
+- [ ] 9. Fresh bug sweep of the three-phase runtime surface; fix what is safe, document the rest.
+      Read for genuine NEW bugs (do not assume from the stale audit): broken/circular imports, unawaited promises, null-deref where `createAdminClient()` returns `null`, server actions missing auth/owner checks, wrong redirects, forms that don't validate, dead links / 404 routes. Focus files: `src/app/dashboard/campaigns/[id]/page.tsx` (note: campaign detail is fetched WITHOUT a `user_id` filter — confirm RLS covers read access for owners/admins and that a non-owner cannot load another user's campaign; if RLS does not cover it, add an owner/role check — otherwise document as RLS-protected), `src/app/dashboard/services/success/page.tsx`, `src/app/api/webhooks/stripe/route.ts`, `src/app/api/checkout/route.ts`, `src/app/api/track/[campaignId]/[email]/pixel/route.ts`, the public `src/app/[campaignName]/[groupName]/[slug]/page.tsx` and `src/app/l/[slug]/page.tsx`, `src/app/api/generate-content/route.ts`, and the server actions under `dashboard/*/actions.ts`. Fix only low-risk, clearly-correct issues (keep each fix minimal and targeted; no refactors/renames). For anything risky or needing product decisions, add it to a short "found, not fixed — needs decision" section in this plan file or in the PR notes rather than guessing.
+      Files: as discovered (expect small, targeted edits only).
+      Verify: `npm run build` passes; `npm run lint` clean; `npm run dev` smoke of the main authenticated flows (dashboard, create campaign, detail realtime, services/cart) shows no console errors introduced.
+
+- [ ] 10. Re-check contrast after the type changes (quick accessibility win).
+      The size bump can expose low-contrast muted text that was previously too small to notice (e.g. `.muted`, `#98a2b3` captions on white, dark-mode `--subtle`). Spot-check the now-larger meta text against WCAG AA (4.5:1 body / 3:1 large) using DevTools in both themes. Only adjust a color if it clearly fails AA for body-size text, and reuse existing palette tokens (`var(--subtle)`, `var(--ink)`) — do not introduce new colors or restyle layout. Note that full WCAG conformance needs manual AT testing; this is a targeted contrast pass only.
+      Files: `src/app/globals.css` (only if a clear AA failure is found)
+      Verify: `npm run dev` + DevTools contrast checker on sampled captions/labels in light and dark; `npm run build` passes.
+
+---
+
+## MUST NOT CHANGE (preserve exactly)
+- Safety framing, admin-approval workflow, "credentials are NOT stored" text.
+- Sandboxed preview iframes (`sandbox=""`) in dashboard previews.
+- The `.env` file, all env var NAMES (`DASHSCOPE_*`, `STRIPE_*`, `SUPABASE_*`, `NEXT_PUBLIC_*`, SMTP_*).
+- The `{{link}}` email token and its title-based tracking path substitution in `approveCampaign`.
+- All DB columns, routes, server-action names, and form field names.
+- The DeepSeek/DashScope AI request shape (`src/app/api/generate-content`).
+- Stripe request shapes (`/api/checkout`, webhook) and tracking semantics.
+- The semantic-class CSS system in `globals.css` (class names stay; only font-size/line-height and the font-family addition change). No new UI/CSS/animation libraries. No Tailwind-utility restyle of existing screens.
+
+## ACCEPTED / NOTE-ONLY (do NOT "fix")
+- Intentional `dangerouslySetInnerHTML` of user-authored `html_content` on the PUBLIC phishing landing routes (`l/[slug]`, `[campaignName]/[groupName]/[slug]`) — inherent to a phishing simulator; accepted risk. Dashboard previews correctly sandbox. Leave as-is.
+- The UTC-calendar-month quota window in `entitlements.ts` — documented product simplification; out of scope here.
+- Any audit P2 item already implemented in prior phases (see the "ALREADY FIXED" list at top).
+
+## OPEN QUESTIONS / ASSUMPTIONS
+- Assumed `npm run build` is the authoritative verification gate (no test runner exists). Manual `npm run dev` visual checks cover the type-scale/dark-mode/breakpoint items a headless build cannot.
+- Assumed deleting `create_landing_pages.sql` is safe because it is absent from the README migration order and runtime uses `schema.sql`. Item 8 double-checks via grep before deleting and falls back to annotation if any reference is found.
+- Font-feature-settings in item 1 is optional/cosmetic; drop it if it alters glyphs unexpectedly in dev.
+
+---
+
+## VERIFICATION NOTE (typography + bug-hunt pass)
+
+Commands run (reviewer does NOT need to re-run):
+- `rm -rf .next && npm run build` → **PASS** (Next.js 16.0.10, Turbopack; TypeScript + ESLint ran; all routes compiled). NOTE: the first build failed on a STALE `.next` cache that referenced a non-existent `src/app/failed/page.js`; removing `.next` and rebuilding fixed it. No such route exists in source (`grep -rn "/failed" src` is empty) — pre-existing cache artifact, not introduced by this pass.
+- `npm run lint` → **PASS** (ESLint clean, no warnings/errors).
+- Dev server (`npm run dev` on :3000) + headless Chromium screenshots of the four PUBLIC pages in light AND dark.
+
+### Goal 1 — Typography (DONE)
+- ROOT-CAUSE FIX: added `font-family: var(--font-geist-sans), …` plus base defaults (`font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility`) to the plain-CSS `body` rule in `globals.css`. Dropped the optional `font-feature-settings` (kept glyphs stable). Verified in a headless browser: `getComputedStyle(document.body).fontFamily` now resolves to `Geist, "Geist Fallback", ui-sans-serif, …` — the browser-default serif is gone.
+- MONO: added `code, pre, kbd, samp { font-family: var(--font-geist-mono), ui-monospace, … }` so inline `<code>{{link}}` tokens and the styled-but-font-less `.app-table code`/`.format-guide code` render monospace. The four pre-existing mono surfaces (`.recipient-editor`, `.format-example p`, `.studio-code`, `.code-block`) were left intact.
+- WEIGHTS: Geist is loaded as a variable font via `next/font/google` (full axis), so 600–900 render without clamping; `layout.tsx` left unchanged (confirmed visually in screenshots — hero/headings show distinct heavy weights).
+- TYPE SCALE: raised the tiny-text floor across the whole file. Blanket mapping applied with a hard floor of 12px (6/7/8→11→then 9/10/11→12 so effective floor is 12px for readable UI text), 13→14. Then restored hierarchy on primary body surfaces: `.field input/select/textarea`→14, `.app-table td`/`strong`→13, `.auth-intro`→14, marketing feature/card copy→14, `.button`→13. `grep font-size:[6-9]px` and `1[01]px` now returns nothing below 12px. Breakpoint overrides (1050/760/540) re-checked: `.topbar-title` (12px @540), `.library-summary` (12px) etc. are all ≥12px; no media-query value left below the floor. No colors/spacing/layout/weights changed in the scale pass.
+- LAYOUT: screenshots confirm topbar, pricing cards (4-up), feature grid, hero and login split-screen do not overflow/clip or trigger horizontal scroll in light or dark at 1280px.
+
+### Goal 2 — Bug hunt / overhaul
+FIXED:
+- Entitlement boundary (`campaigns/actions.ts` `launchCampaign`): confirmed the monthly-vs-credit decision is computed ONCE from the PRE-insert `remainingMonthly` and passed as the `useCustomCredit` flag; `consumeAllowance` no longer re-reads. Behavior was already correct — added a clarifying 3-line comment only (a user exactly at the monthly limit with room left, remainingMonthly>0, burns NO credit; only remainingMonthly===0 consumes one). No behavioral change.
+- Redundant SQL: deleted `supabase/migrations/create_landing_pages.sql` (table is canonical in `schema.sql` line 133; file absent from README migration order; only referenced by the audit doc). `git rm` used.
+- `type` attributes: added explicit `type` to buttons across `theme-toggle.tsx`, `marketing-nav.tsx`, `dashboard-shell.tsx` (mobile-close/menu/backdrop/notification toggle+close = button; sign-out = submit), `CartPanel.tsx` (5, all button), `DashboardClient.tsx` (2 chart controls = button), `AccountSettings.tsx` (2 submit), `groups/create` + `landing-pages/create` (submit), `logs/page.tsx` ("Apply" submit), `AccountActionButton.tsx` (submit), `login/page.tsx` (auth-submit=submit, google+switch=button). Real submit buttons kept/made `type="submit"`.
+
+FOUND — NOT A BUG / ACCEPTED (no change):
+- Campaign detail (`dashboard/campaigns/[id]/page.tsx`) fetches without a `user_id` filter → RLS-PROTECTED: `schema.sql` "Users can crud own campaigns" (`auth.uid()=user_id`) + admin/manager/auditor SELECT policies; a non-owner `.single()` returns no row → `notFound()`. No owner check needed.
+- All `createAdminClient()` call sites (activity, credits, checkout, entitlements, orders, users actions/page, support, billing-actions, logs) guard `if (!admin) …` — no null-deref.
+- Stripe webhook/checkout, DeepSeek/DashScope generate-content, pixel route, public landing routes (`[campaignName]/.../slug`, `l/[slug]`) reviewed — request shapes, `{{link}}`, `sandbox=""`, tracking semantics, `dangerouslySetInnerHTML` all preserved and correct.
+- Stray "N" circle bottom-left in dev screenshots = the **Next.js dev-tools indicator** (`<nextjs-portal>` shadow-DOM button at x≈22,y≈846). Dev-only; absent from production build. Not a code bug (matches prior review's non-reproduction — it lives in a shadow root).
+
+### Screenshots (.agents/tasks/typography-shots/)
+home-light.png, home-dark.png, features-light.png, features-dark.png, pricing-light.png, pricing-dark.png, login-light.png, login-dark.png
+
+### Needs runtime verification by the user (unchanged from prior review.json)
+- Apply `20261201_rename_admin_function.sql` in the Supabase SQL editor (app can't run DDL).
+- Confirm single-`clicked`-per-visit tracking against a real sent campaign.

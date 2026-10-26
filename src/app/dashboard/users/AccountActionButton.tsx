@@ -12,5 +12,5 @@ export default function AccountActionButton({ action }: { action: 'ban' | 'resto
     delete: { label: 'Delete account', message: 'Permanently delete this account and all owned data? This cannot be undone.', icon: Trash2, className: 'reject' },
   }[action]
   const Icon = config.icon
-  return <button className={`mini-button ${config.className}`} title={config.label} aria-label={config.label} disabled={pending} onClick={(event) => { if (!window.confirm(config.message)) event.preventDefault() }}>{pending ? <LoaderCircle className="spin" size={14}/> : <Icon size={14}/>}</button>
+  return <button type="submit" className={`mini-button ${config.className}`} title={config.label} aria-label={config.label} disabled={pending} onClick={(event) => { if (!window.confirm(config.message)) event.preventDefault() }}>{pending ? <LoaderCircle className="spin" size={14}/> : <Icon size={14}/>}</button>
 }

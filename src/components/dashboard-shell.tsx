@@ -39,7 +39,7 @@ export function DashboardShell({ children, email, name, role, notifications, cre
           <span className="brand-mark"><ShieldCheck size={21} /></span>
           <span>Phish<span>Safe</span></span>
         </Link>
-        <button className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation"><X size={20} /></button>
+        <button type="button" className="mobile-close" onClick={() => setOpen(false)} aria-label="Close navigation"><X size={20} /></button>
       </div>
       <nav className="side-nav" aria-label="Dashboard navigation">
         <p className="nav-eyebrow">Workspace</p>
@@ -54,7 +54,7 @@ export function DashboardShell({ children, email, name, role, notifications, cre
           <div className="account-copy"><strong>{name}</strong><span>{ROLE_LABELS[role]} · {email}</span></div>
           <ChevronRight size={16}/>
         </Link>
-        <form action="/auth/signout" method="post"><button className="sidebar-signout"><LogOut size={15}/> Sign out</button></form>
+        <form action="/auth/signout" method="post"><button type="submit" className="sidebar-signout"><LogOut size={15}/> Sign out</button></form>
       </div>
     </>
   )
@@ -63,12 +63,12 @@ export function DashboardShell({ children, email, name, role, notifications, cre
     <div className="app-shell">
       <ActivityTracker />
       <aside className="desktop-sidebar">{sidebar}</aside>
-      {open && <button className="mobile-backdrop" onClick={() => setOpen(false)} aria-label="Close menu" />}
+      {open && <button type="button" className="mobile-backdrop" onClick={() => setOpen(false)} aria-label="Close menu" />}
       <aside className={`mobile-sidebar ${open ? 'is-open' : ''}`}>{sidebar}</aside>
       <div className="app-main">
         <header className="topbar">
           <div className="topbar-left">
-            <button className="mobile-menu" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu size={21} /></button>
+            <button type="button" className="mobile-menu" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu size={21} /></button>
             <div className="topbar-heading"><p className="topbar-kicker">Security awareness platform</p><p className="topbar-title">Welcome back, {name.split(' ')[0]}</p></div>
           </div>
           <div className="topbar-actions">
@@ -76,9 +76,9 @@ export function DashboardShell({ children, email, name, role, notifications, cre
             <span className={`role-pill ${role}`}><span />{ROLE_LABELS[role]}</span>
             <ThemeToggle />
             <div className="notification-wrap">
-              <button className="icon-button notification" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen(!notificationsOpen)}><Bell size={18} />{notifications.length > 0 && <span />}</button>
+              <button type="button" className="icon-button notification" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen(!notificationsOpen)}><Bell size={18} />{notifications.length > 0 && <span />}</button>
               {notificationsOpen && <div className="notification-menu">
-                <div className="notification-head"><div><strong>Notifications</strong><span>{notifications.length} update{notifications.length === 1 ? '' : 's'}</span></div><button onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={16}/></button></div>
+                <div className="notification-head"><div><strong>Notifications</strong><span>{notifications.length} update{notifications.length === 1 ? '' : 's'}</span></div><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={16}/></button></div>
                 <div className="notification-list">{notifications.length === 0 ? <div className="notification-empty"><Bell size={20}/><strong>You’re all caught up</strong><span>Campaign updates will appear here.</span></div> : notifications.map((item) => <Link href={role === 'admin' || role === 'campaign_manager' ? `/dashboard/requests/${item.id}` : `/dashboard/campaigns/${item.id}`} className="notification-item" key={item.id} onClick={() => setNotificationsOpen(false)}><span className={`notification-type ${item.type}`}>{item.type === 'approved' ? <CheckCircle2 size={15}/> : item.type === 'rejected' ? <X size={15}/> : <Clock3 size={15}/>}</span><span><strong>{item.title}</strong><small>{item.detail}</small><time>{new Date(item.createdAt).toLocaleDateString()}</time></span></Link>)}</div>
                 <Link className="notification-footer" href={role === 'admin' || role === 'campaign_manager' ? '/dashboard/requests' : '/dashboard'} onClick={() => setNotificationsOpen(false)}>View campaign activity <ArrowIcon/></Link>
               </div>}

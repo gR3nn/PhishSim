@@ -113,7 +113,7 @@ export default function CreateLandingPage() {
                 <Link href="/dashboard/landing-pages" className="button secondary">
                   Cancel
                 </Link>
-                <button className="button primary" disabled={loading}>
+                <button type="submit" className="button primary" disabled={loading}>
                   <Save size={15} />
                   {loading ? 'Saving…' : 'Save page'}
                 </button>

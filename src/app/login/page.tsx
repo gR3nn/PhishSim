@@ -65,11 +65,11 @@ export default function LoginPage() {
           <div className="field"><label htmlFor="email">Email address</label><input id="email" type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com"/></div>
           <div className="field"><div className="label-row"><label htmlFor="password">Password</label>{!isSignUp && <button type="button" onClick={handleForgotPassword} disabled={loading}>Forgot password?</button>}</div><div className="password-field"><input id="password" type={showPassword ? 'text' : 'password'} minLength={6} required autoComplete={isSignUp ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="At least 6 characters"/><button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></div></div>
           {error && <div className="auth-message error">{error}</div>}{message && <div className="auth-message success">{message}</div>}
-          <button className="auth-submit" disabled={loading}>{loading ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}<ArrowRight size={17}/></button>
+          <button type="submit" className="auth-submit" disabled={loading}>{loading ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}<ArrowRight size={17}/></button>
         </form>
         <div className="auth-divider"><span>or continue with</span></div>
-        <button className="google-button" onClick={handleGoogleLogin} disabled={loading}><span>G</span>{loading ? 'Connecting…' : 'Google'}</button>
-        <p className="auth-switch">{isSignUp ? 'Already have an account?' : 'New to PhishSafe?'} <button onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null) }}>{isSignUp ? 'Sign in' : 'Create an account'}</button></p>
+        <button type="button" className="google-button" onClick={handleGoogleLogin} disabled={loading}><span>G</span>{loading ? 'Connecting…' : 'Google'}</button>
+        <p className="auth-switch">{isSignUp ? 'Already have an account?' : 'New to PhishSafe?'} <button type="button" onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null) }}>{isSignUp ? 'Sign in' : 'Create an account'}</button></p>
       </div>
     </section>
   </main>

@@ -36,6 +36,7 @@ export function MarketingNav() {
             Get started
           </Link>
           <button
+            type="button"
             className="marketing-menu-button"
             onClick={() => setOpen(!open)}
             aria-label="Toggle navigation"

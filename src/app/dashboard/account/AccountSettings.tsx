@@ -36,11 +36,11 @@ export default function AccountSettings({ id, initialName }: { id: string; initi
   return <div className="settings-grid">
     <form className="form-card" onSubmit={saveProfile}>
       <section className="form-section"><div className="settings-title"><span><UserRound size={19}/></span><div><h2>Personal details</h2><p>Update the name shown around your workspace.</p></div></div><div className="form-grid"><div className="field full"><label htmlFor="fullName">Full name</label><input id="fullName" value={name} onChange={(event) => setName(event.target.value)} required/></div></div>{profileMessage && <p className="inline-message"><CheckCircle2 size={14}/>{profileMessage}</p>}</section>
-      <div className="form-actions"><button className="button primary" disabled={saving}><Save size={15}/>{saving ? 'Saving…' : 'Save details'}</button></div>
+      <div className="form-actions"><button type="submit" className="button primary" disabled={saving}><Save size={15}/>{saving ? 'Saving…' : 'Save details'}</button></div>
     </form>
     <form className="form-card" onSubmit={changePassword}>
       <section className="form-section"><div className="settings-title"><span><KeyRound size={19}/></span><div><h2>Change password</h2><p>Choose a unique password with at least 8 characters.</p></div></div><div className="form-grid"><div className="field full"><label htmlFor="newPassword">New password</label><div className="password-field"><input id="newPassword" type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8}/><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={16}/> : <Eye size={16}/>}</button></div></div><div className="field full"><label htmlFor="confirmPassword">Confirm new password</label><input id="confirmPassword" type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required minLength={8}/></div></div>{passwordMessage && <p className="inline-message"><CheckCircle2 size={14}/>{passwordMessage}</p>}</section>
-      <div className="form-actions"><button className="button primary" disabled={saving}><KeyRound size={15}/>{saving ? 'Updating…' : 'Update password'}</button></div>
+      <div className="form-actions"><button type="submit" className="button primary" disabled={saving}><KeyRound size={15}/>{saving ? 'Updating…' : 'Update password'}</button></div>
     </form>
   </div>
 }
