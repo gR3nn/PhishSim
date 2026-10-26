@@ -10,7 +10,7 @@ export default async function DashboardPage() {
     // Fetch initial stats
     // We can do this with 4 queries or one group by.
     // Group by is better but Supabase JS simple client might need raw SQL or multiple queries.
-    // We'll use multiple count queries for simplicity and readability in this prototype.
+    // Separate count queries keep each dashboard metric explicit and independently scoped.
 
     const { count: sent } = await supabase
         .from('events')

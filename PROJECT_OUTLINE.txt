@@ -85,7 +85,7 @@ TECHNOLOGIES AND FRAMEWORKS
 - CSS3 and Tailwind CSS 4.1.18 for responsive styling
 - JavaScript (ECMAScript) compiled from TypeScript 5.9.3 with an ES2017 output target
 - React 19.3.1 and React DOM 19.3.1 for interactive user-interface components
-- Next.js 16.4.3 App Router for pages, server actions, middleware and API routes
+- Next.js 16.4.3 App Router for pages, server actions, request proxy and API routes
 - Supabase Auth for authentication
 - Supabase PostgreSQL for relational data storage
 - Supabase Realtime for live campaign-event updates

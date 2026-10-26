@@ -24,7 +24,7 @@ const offers = [
     price: '€129',
     note: 'per month',
     icon: Sparkles,
-    copy: 'More testing flexibility for growing organizations.',
+    copy: 'More training flexibility for growing organizations.',
     features: ['Up to 1,000 recipients', '10 campaigns monthly', 'Advanced analytics', 'Custom landing pages'],
     featured: true,
   },
@@ -47,7 +47,7 @@ export default function PricingPage() {
           <p className="eyebrow">Simple pricing</p>
           <h1>Start once or build an ongoing program.</h1>
           <p>
-            Choose a pay-per-recipient campaign for a focused test, or a monthly plan for continuous awareness
+            Choose a pay-per-recipient campaign for focused training, or a monthly plan for continuous awareness
             training.
           </p>
         </section>

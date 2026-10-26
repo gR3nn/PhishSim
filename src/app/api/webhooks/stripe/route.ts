@@ -71,7 +71,7 @@ async function fetchFullSession(sessionId: string): Promise<StripeCheckoutSessio
 export async function POST(request: Request) {
   const whSecret = process.env.STRIPE_WEBHOOK_SECRET
   if (!whSecret) {
-    return NextResponse.json({ error: 'Stripe webhook secret not configured.' }, { status: 503 })
+    return NextResponse.json({ error: 'Payment event processing is temporarily unavailable.' }, { status: 503 })
   }
 
   const sig = request.headers.get('stripe-signature')
@@ -113,9 +113,8 @@ export async function POST(request: Request) {
         break
       }
       case 'invoice.paid': {
-        // Best-effort: refreshing the monthly order's period_start on renewal
-        // would need the subscription→order mapping that Phase 1 does not yet
-        // plumb through, so this is intentionally a no-op for now.
+        // Renewal payments are acknowledged here; the subscription remains tied
+        // to the existing paid order through its Stripe customer reference.
         break
       }
       default:

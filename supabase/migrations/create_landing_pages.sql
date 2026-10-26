@@ -3,7 +3,7 @@ create table if not exists landing_pages (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references auth.users on delete cascade not null,
   name text not null,
-  url_slug text not null, -- e.g. 'fake-login-2' -> /l/fake-login-2
+  url_slug text not null, -- e.g. 'payroll-awareness' -> /l/payroll-awareness
   html_content text not null,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   unique(user_id, url_slug)

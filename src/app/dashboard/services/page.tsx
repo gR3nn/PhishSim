@@ -28,7 +28,7 @@ function dateLabel(iso: string): string {
 
 function entitlementBanner(entitlement: Entitlement | null, configured: boolean) {
   if (!configured) {
-    return <div className="attention-banner"><div className="attention-icon"><AlertTriangle size={22} /></div><div><strong>Billing is not configured</strong><p>Ask an administrator to set SUPABASE_SERVICE_ROLE_KEY.</p></div></div>
+    return <div className="attention-banner"><div className="attention-icon"><AlertTriangle size={22} /></div><div><strong>Billing is temporarily unavailable</strong><p>Please contact support if you need help choosing or activating a plan.</p></div></div>
   }
   if (!entitlement || !entitlement.plan) {
     return <div className="attention-banner"><div className="attention-icon"><Coins size={22} /></div><div><strong>No active plan</strong><p>Purchase a custom campaign or monthly plan to create campaigns.</p></div></div>

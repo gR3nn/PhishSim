@@ -68,7 +68,7 @@ export async function POST(request: Request) {
         if (message.includes('DASHSCOPE_API_KEY')) {
             return NextResponse.json(
                 {
-                    error: 'AI generation is not configured. Set DASHSCOPE_API_KEY in your environment.',
+                    error: 'AI-assisted creation is temporarily unavailable. You can continue with the standard editor.',
                 },
                 { status: 500 }
             )

@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   const secret = process.env.STRIPE_SECRET_KEY
-  if (!secret) return NextResponse.json({ error: 'Stripe test mode is not configured yet. Add STRIPE_SECRET_KEY to .env.local.' }, { status: 503 })
+  if (!secret) return NextResponse.json({ error: 'Secure checkout is temporarily unavailable. Please contact support.' }, { status: 503 })
   const origin = new URL(request.url).origin
   const hasSubscription = items.some((item) => plans[item.plan].billing === 'monthly')
   const body = new URLSearchParams({ mode: hasSubscription ? 'subscription' : 'payment', success_url: `${origin}/dashboard/services/success?session_id={CHECKOUT_SESSION_ID}`, cancel_url: `${origin}/dashboard/services`, customer_email: user.email ?? '', 'metadata[user_id]': user.id, 'metadata[plan]': items[0].plan, 'metadata[cart]': JSON.stringify(items) })

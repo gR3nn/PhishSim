@@ -430,7 +430,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 900px) { .wallet-card { grid-template-columns:auto 1fr; }.wallet-card .coupon-form { grid-column:1/-1; }.support-layout { grid-template-columns:1fr; }.support-sidebar { max-height:260px;overflow:auto;border-right:0;border-bottom:1px solid var(--line); }.audit-stats { grid-template-columns:1fr; }.audit-filters { width:100%;flex-wrap:wrap; }.audit-filters select { flex:1; } }
 @media (max-width: 600px) { .wallet-card { grid-template-columns:1fr;text-align:center; }.wallet-icon { margin:auto; }.coupon-form { grid-template-columns:1fr; }.coupon-entry { width:100%; }.coupon-entry input { flex:1;min-width:0; }.support-thread { padding:14px; }.support-message { max-width:90%; }.credit-pill span { display:none; }.credit-pill { padding:0 9px; } }
 
-/* Phase 2 — motion layer */
+/* Interaction and motion layer */
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes fade-in-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }

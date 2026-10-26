@@ -1,5 +1,5 @@
 -- Orders entitlements: widen plan options and add billing/credit tracking
--- Run this in the Supabase SQL editor before testing (the app cannot run DDL).
+-- Run this in the Supabase SQL editor before deployment (the app cannot run DDL).
 
 alter table public.orders drop constraint if exists orders_plan_check;
 alter table public.orders add constraint orders_plan_check

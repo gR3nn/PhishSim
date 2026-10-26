@@ -1,7 +1,7 @@
-import { captureCredentials } from './actions'
+import { recordSimulationSubmission } from './actions'
 import Image from 'next/image'
 
-export default async function FakeLoginPage({
+export default async function SignInSimulationPage({
     searchParams,
 }: {
     searchParams: Promise<{ campaignId: string; email: string }>
@@ -22,7 +22,7 @@ export default async function FakeLoginPage({
                     <h1 className="text-2xl font-semibold text-[#1b1b1b]">Sign in</h1>
                 </div>
 
-                <form action={captureCredentials} className="space-y-4">
+                <form action={recordSimulationSubmission} className="space-y-4">
                     <input type="hidden" name="campaignId" value={campaignId || ''} />
                     <input type="hidden" name="targetEmail" value={email || ''} />
 

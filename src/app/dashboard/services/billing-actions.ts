@@ -15,7 +15,7 @@ export async function redeemCoupon(_previous: CouponState, formData: FormData): 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Please sign in again.' }
   const admin = createAdminClient()
-  if (!admin) return { error: 'Wallet service is not configured.' }
+  if (!admin) return { error: 'Wallet services are temporarily unavailable. Please try again later.' }
   const { error } = await admin.from('credit_transactions').insert({ user_id: user.id, amount_cents: 10000, kind: 'coupon', reference: code, description: 'FREE100 promotional credit' })
   if (error?.code === '23505') return { error: 'You have already redeemed FREE100.' }
   if (error) return { error: error.message }
@@ -27,7 +27,7 @@ export async function redeemCoupon(_previous: CouponState, formData: FormData): 
 /**
  * Open a Stripe Billing Portal session for the signed-in user. Owner-scoped:
  * the customer id is resolved only from the user's own most-recent paid monthly
- * order (the Phase-1 minimal approach — we trust the latest subscription order's
+ * order. The latest subscription order provides the Stripe customer reference
  * stripe_customer_id rather than tracking a dedicated customer record).
  */
 export async function openBillingPortal(): Promise<void> {
@@ -36,10 +36,10 @@ export async function openBillingPortal(): Promise<void> {
   if (!user) redirect('/login')
 
   const secret = process.env.STRIPE_SECRET_KEY
-  if (!secret) throw new Error('Billing is not configured yet.')
+  if (!secret) throw new Error('Billing services are temporarily unavailable.')
 
   const admin = createAdminClient()
-  if (!admin) throw new Error('Billing is not configured yet.')
+  if (!admin) throw new Error('Billing services are temporarily unavailable.')
 
   const { data: orders } = await admin
     .from('orders')

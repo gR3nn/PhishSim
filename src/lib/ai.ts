@@ -21,7 +21,7 @@ Requirements:
 - Do not request or store real credentials. This page is for educational purposes only.
 - Return ONLY the raw HTML. Do not wrap it in markdown code fences or add any commentary.
 - Make the page as realistically as possible and as close to the original page, so that this is a true phising simulation
-- Never add disclaimers about it being a test or anything, i need it to be real in order for people to learn something frim this test`
+- Do not add preview labels inside the generated exercise content; keep it suitable for authorized awareness training.`
 
 const EMAIL_SYSTEM_INSTRUCTION = `You are an expert email designer building a safe, educational phishing-simulation training email for an authorized security-awareness training platform.
 
@@ -33,7 +33,7 @@ Requirements:
 - The primary call-to-action link href MUST be exactly {{link}} (the literal five characters {{link}}, unencoded) so the platform can substitute the tracking URL.
 - Do not request or store real credentials. This email is for educational purposes only.
 - Make the email as realistically as possible and as close to a genuine message as possible, so that this is a true phising simulation
-- Never add disclaimers about it being a test or anything, i need it to be real in order for people to learn something frim this test
+- Do not add preview labels inside the generated exercise content; keep it suitable for authorized awareness training.
 - Return ONLY the raw HTML. Do not wrap it in markdown code fences or add commentary.`
 
 // Appended to the system instruction when revising an existing document.

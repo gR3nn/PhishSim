@@ -16,7 +16,7 @@ export async function sendEmail({ to, subject, html, from }: SendEmailOptions) {
 
     if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
         console.error('Missing SMTP configuration');
-        throw new Error('SMTP configuration is missing. Please check your .env.local file.');
+        throw new Error('Email delivery is temporarily unavailable.');
     }
 
     const transporter = nodemailer.createTransport({

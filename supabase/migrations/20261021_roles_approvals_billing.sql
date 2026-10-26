@@ -1,5 +1,5 @@
 -- SignalSafe role, approval, and billing model
--- Run this migration in the Supabase SQL editor before testing the new workflows.
+-- Run this migration in the Supabase SQL editor before deploying the workflows.
 
 alter table public.profiles
   add column if not exists role text not null default 'client' check (role in ('client', 'admin')),

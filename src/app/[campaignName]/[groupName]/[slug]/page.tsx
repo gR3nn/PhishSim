@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
-import FakeLoginPage from '@/app/fake-login/page'
+import SignInSimulationPage from '@/app/sign-in-simulation/page'
 
 export default async function LandingPage({
     params,
@@ -51,8 +51,8 @@ export default async function LandingPage({
         campaignError = error
     }
 
-    // Check for 'fake-login' special slug
-    if (slug === 'fake-login') {
+    // The built-in sign-in scenario records form submission without retaining credentials.
+    if (slug === 'sign-in-simulation') {
         if (!campaignId) {
             // If we can't find campaign, maybe standard 404 or just render valid login without tracking context?
             // Better to 404 since likely malformed URL
@@ -71,14 +71,12 @@ export default async function LandingPage({
             })
         }
 
-        // Render the Fake Login Page
-        // Construct the promise it expects
-        const fakeLoginParams = Promise.resolve({
+        const simulationParams = Promise.resolve({
             campaignId: campaignId,
             email: targetEmail ? decodeURIComponent(targetEmail) : ''
         })
 
-        return <FakeLoginPage searchParams={fakeLoginParams} />
+        return <SignInSimulationPage searchParams={simulationParams} />
     }
 
     // 2. Find Landing Page by Slug (Standard Logic)

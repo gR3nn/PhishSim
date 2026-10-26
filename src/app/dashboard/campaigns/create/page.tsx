@@ -52,7 +52,7 @@ export default async function CreateCampaignPage() {
     const customLandingPages = resolveUserLibrary(rawLandingPages || [], user!.id)
 
     const landingPages = [
-        { url: '/fake-login', name: 'Fake Microsoft Login' },
+        { url: '/sign-in-simulation', name: 'Microsoft 365 sign-in simulation' },
         ...((customLandingPages || []).map(p => ({
             url: `/l/${p.url_slug}`,
             name: p.name

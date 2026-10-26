@@ -11,7 +11,7 @@ export default async function ActivityLogsPage({ searchParams }: { searchParams:
   const { data: profile } = user ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle() : { data: null }
   if (!user || !canManageCampaigns(getRole(user.email, profile?.role))) redirect('/dashboard')
   const admin = createAdminClient()
-  if (!admin) return <div className="panel empty-state"><h2>Audit database unavailable</h2><p>Add the Supabase service role key to view logs.</p></div>
+  if (!admin) return <div className="panel empty-state"><h2>Activity history unavailable</h2><p>Please try again later or contact platform support.</p></div>
   let query = admin.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(500)
   if (filters.action) query = query.eq('action', filters.action)
   if (filters.user) query = query.eq('user_id', filters.user)
