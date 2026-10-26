@@ -1,154 +1,311 @@
-# Implementation Plan — Typography Fix + Bug-Hunt Overhaul (PhishSafe)
+<!--
+=============================================================================
+VERIFICATION NOTE (latest iteration — Space Grotesk / Inter / JetBrains Mono)
+=============================================================================
+Implemented the full font replacement per this plan (prior APPROVED review in
+review.json/review.md covered an earlier Geist-only type-scale pass; the actual
+files still used Geist, so this iteration executed Goal 1 from scratch). Two files
+changed: src/app/layout.tsx + src/app/globals.css. The two findings in review.json
+are both explicitly non-blocking, carried-over, DB/runtime items out of this
+presentation scope (admin-rename DDL migration; single-click tracking runtime check)
+— intentionally not touched here.
 
-Scope: FIX THE TYPOGRAPHY first (the user's loudest complaint), then a fresh bug-hunt / overhaul pass. Work on `main`, no worktree. Keep the semantic-class CSS design system in `src/app/globals.css`. No new UI/CSS/animation libraries. No Tailwind-utility restyling of existing screens.
+COMMANDS RUN (from repo root):
+- `npm run lint`  -> PASS (exit 0, no warnings/errors)
+- `rm -rf .next && npm run build` -> PASS (Next.js 16.4.3, TS+ESLint OK, 33 routes,
+  fonts fetched via next/font/google with no errors)
+- Dev server (`next dev`, :3000) started; public pages /, /features, /pricing,
+  /login all returned HTTP 200.
+- Playwright (chromium) full-page screenshots, 1440x1000 @2x, light + dark:
+    .agents/tasks/font-shots/home-light.png     .agents/tasks/font-shots/home-dark.png
+    .agents/tasks/font-shots/features-light.png  .agents/tasks/font-shots/features-dark.png
+    .agents/tasks/font-shots/pricing-light.png   .agents/tasks/font-shots/pricing-dark.png
+    .agents/tasks/font-shots/login-light.png     .agents/tasks/font-shots/login-dark.png
+  Visual check: Space Grotesk on hero/section/card headings + prominent numerals;
+  Inter on body/nav/buttons/labels/feature lists; no clipping/overflow on hero,
+  nav, pricing cards, or two-column auth; dark mode colors intact.
 
-Build/verify commands (from `package.json`, Node pinned `>=22.23.4 <23` in `.nvmrc`):
-- Type/build check: `npm run build` (Next.js 16 `next build`, runs TS + ESLint).
-- Lint only (faster inner loop): `npm run lint`.
-- There is no unit-test runner configured; `npm run build` is the authoritative gate. Also do a manual visual check with `npm run dev` on port 3000 for the type-scale and dark-mode / breakpoint verification items that the build cannot catch.
+GREP PROOFS (all pass):
+  $ grep -n "font-family: var(--font-inter)" src/app/globals.css
+    148:  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  $ grep -n "var(--font-display)" src/app/globals.css
+    170:  font-family: var(--font-display), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  $ grep -nE "font-size: ?([0-9]|1[01])px" src/app/globals.css
+    (no matches — floor of 12px holds everywhere incl. @media 1050/760/600/540)
+  $ grep -rnE "font-geist|Geist" src/
+    (no matches — Geist fully removed)
+  $ layout.tsx Space_Grotesk weight = ["300","400","500","600","700"] (no 800/900)
 
-Exploration confirmed several audit "P2" items are ALREADY FIXED in prior phases and must NOT be re-done:
-- No `alert()` remains in `src/` (grep clean) — error UIs already use `.auth-message`/inline patterns.
-- `CampaignDetailsClient.tsx` `Target` type is already `{ id, email, name? }` (the `first_name/last_name` mismatch is gone).
-- `deleteGroup` / `deleteTemplate` already carry `.eq('user_id', user.id)` ownership filters (templates also block defaults + check `user_id`).
-- `updateGroup` already manages recipients/targets, not just the name.
-- The Stripe webhook route (`src/app/api/webhooks/stripe`) and landing-page `[id]` detail + `[id]/edit` routes already exist.
-- `deleteCampaign` already has the ownership filter and a correct cascade comment.
-Do not "fix" these; they are done.
+OLD -> NEW font-size table (proves nothing < 12px; floor preserved):
+  body base                               14px -> 15px
+  .page-heading p:last-child              14px -> 15px
+  .section-intro/.public-page-hero p      14px -> 15px
+  .feature-showcase/.about/.public-feat p 14px -> 15px
+  .auth-story-copy > p                    14px -> 15px
+  .auth-intro                             14px -> 15px
+  .button                                 13px -> 14px
+  .auth-submit / .google-button           12px -> 14px
+  .app-table td / .app-table strong       13px -> 14px
+  .topbar-title                           15px -> 16px
+  .panel-heading h2                       15px -> 18px
+  .form-section h2                        14px -> 18px
+  .data-panel-head h2                     14px -> 18px
+  .resource-copy h2                       14px -> 18px
+  .settings-title h2 (landing)            15px -> 18px
+  .format-guide h2                        16px -> 18px
+  .create-modal-head h2                   16px -> 18px
+  .empty-state h3 / .center-pad h3        14/17px -> 18px
+  .landing-ai-title h3                    14px -> 18px
+  .plan-card h2                           16px -> 20px
+  .public-pricing-grid h2                 16px -> 20px
+  .feature-showcase h3/.about h2/.pub h2  15px -> 20px
+  .workflow-step h2                       16px -> 20px
+  .trust-control h2                       17px -> 20px
+  .stat-card > strong                     25px -> 26px
+  .library-summary span                   15px -> 18px
+  secondary/meta lifted 12px -> 13px: .stat-card>small, .campaign-name strong/span,
+    .account-copy strong/span, .resource-copy>p, .form-section>p, .field small,
+    .score-panel>p, .plan-card>p, .public-pricing-grid>article>p, tooltip text,
+    .support-message p, .empty-state p, .center-pad p, .create-modal-head p,
+    .create-modal-choices button small, .landing-ai-title p, .studio-safety strong/p,
+    .format-example p, .studio-code/.code-block (mono)
+  micro-labels/eyebrows/badges/pills/uppercase meta: kept at 12px floor (min allowed).
+  540px @media .topbar-title 12px, .library-summary 12px, .stat-card>strong 22px: all >= 12px.
+  WEIGHT CAPS (display headings now Space Grotesk): .brand 750->700,
+    .marketing-nav .brand 850->700, .create-modal-head h2 800->700,
+    .landing-ai-title h3 800->700. (.plan-label 900 stays Inter.)
+=============================================================================
+-->
+
+# Implementation Plan — Typography + Readability Pass (PhishSafe)
+
+Scope: presentation-only. Two files change: `src/app/layout.tsx` (next/font wiring) and
+`src/app/globals.css` (font-family mappings + readability sweep). No copy, routes, behavior,
+DB, `{{link}}`, iframe sandboxing, or `.env` changes. Work on `main`, no worktree.
+
+## Design decisions (made here, grounded in the code I read)
+
+- **Fonts:** Headings in `Space_Grotesk`, body/UI in `Inter`, code/editor in **`JetBrains_Mono`**
+  (switching mono away from `Geist_Mono`). Rationale: JetBrains Mono reads cleaner at small sizes in
+  the dark editor panes (`.studio-code`, `.code-block`, `.recipient-editor`) than Geist Mono and pairs
+  well with Inter; it keeps a single, consistent mono everywhere. `Geist`/`Geist_Mono` imports are then
+  fully removable.
+- **Why the user still finds text "too small" after the 12px floor:** a grep proves it — there are
+  **174 declarations at exactly `font-size: 12px`** and only 3 at 13px, 18 at 14px, 8 at 15px. Body is
+  14px. The prior pass clamped nearly all secondary text, labels, captions, table cells, nav, badges,
+  meta, and even some section descriptions *down to the 12px floor*, collapsing the hierarchy so almost
+  everything reads as the same small size. The fix is not "raise the floor to 12" (already done) but
+  **lift the whole scale and restore hierarchy**: body→15px, meta/caption→13px, micro-labels/eyebrows→12px,
+  nav/buttons→14px, headings up a step. There are **no sub-12px sizes left** (grep for `[789]px`/`1[01]px`
+  returns nothing), so the "NO text below 12px" rule is already met and must be *preserved* — the work is
+  lifting the mass of 12px text, not hunting single-digit sizes.
+- **Heading application is class-scoped, not a global `h1,h2,h3` rule.** globals.css has no bare
+  `h1{}`/`h2{}` selector; headings are styled via classes (`.page-heading h1`, `.panel-heading h2`,
+  `.resource-copy h2`, `.plan-card h2`, etc.). Decision: add Space Grotesk via a **scoped selector list**,
+  NOT a global `h1,h2,h3`. This deliberately leaves the two standalone Tailwind-utility pages
+  (`src/app/sign-in-simulation/page.tsx`, `src/app/training-result/page.tsx`) untouched — they are fake
+  third-party login / result screens and must not inherit the product font. (The task mentions `h1,h2,h3`;
+  I include real heading tags via their wrapper classes instead, to avoid restyling the simulation pages.)
+- **Weight cap:** Space Grotesk ships 300–700 only. Every heading currently at `font-weight: 800/900`
+  that becomes a Space Grotesk heading must drop to `700`. Non-heading 800/900 (eyebrows, pills, badges,
+  nav, table th, links) stays on Inter and keeps its weight (Inter is variable, 800/900 valid).
+
+## next/font config (exact)
+
+In `src/app/layout.tsx`, replace the Geist imports/instances with:
+
+```ts
+import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
+
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  display: "swap",
+});
+```
+
+`<body>` className becomes:
+`` `${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased` ``
+Keep `antialiased`, keep `suppressHydrationWarning` on `<html>`, keep `ThemeProvider` untouched.
+
+## Font-family mappings (exact)
+
+`@theme inline` block (globals.css ~lines 9–10): change to
+```
+--font-sans: var(--font-inter);
+--font-mono: var(--font-mono);
+--font-display: var(--font-space-grotesk);   /* new line */
+```
+
+`body` rule (~line 147): font-family becomes
+`var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;`
+Keep the three smoothing/rendering declarations.
+
+Every `var(--font-geist-mono)` occurrence → `var(--font-mono)`. Locations (all keep `, monospace` fallback,
+all stay mono): `code,pre,kbd,samp` (~156); `.recipient-editor` (~369); `.format-example p` (~370);
+`.studio-code` (~374); `.code-block` (~526). Grep `font-geist` after editing — expect **zero** matches.
+
+Add Space Grotesk to headings only, via one scoped rule (place after the body/base block). Use
+`var(--font-display)` with the Inter stack as fallback, and cap weight context where set inline:
+```
+.page-heading h1, .panel-heading h2, .plan-card h2, .resource-copy h2, .form-section h2,
+.data-panel-head h2, .settings-title h2, .format-guide h2, .landing-settings .settings-title h2,
+.create-modal-head h2, .section-intro h2, .public-page-hero h1, .feature-showcase h3,
+.about-grid h2, .public-feature-grid h2, .public-pricing-grid h2, .workflow-step h2,
+.trust-control h2, .hero-copy h1, .auth-story-copy h1, .auth-form-wrap > h2, .empty-state h3,
+.center-pad h1, .center-pad h3, .product-body h3, .marketing-cta h2, .trust-banner h2,
+.review-decision-bar h2, .thread-head h2, .cart-drawer h2, .profile-identity h2,
+.payment-success h1, .ai-html-editor h3 /* .landing-ai-title h3 */,
+.stat-card > strong, .score-ring strong, .price strong, .public-pricing-grid strong,
+.brand, .marketing-nav .brand, .topbar-title {
+  font-family: var(--font-display), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+```
+(Confirm each selector against the file when editing; the AI-editor heading is `.landing-ai-title h3`.)
+
+## 800/900 → 700 caps (headings that moved to Space Grotesk)
+
+Only cap selectors now using `--font-display`. Audit and set to `700`:
+- `.brand` / `.marketing-nav .brand` — currently `750`/`850` → `700`.
+- `.plan-label` is a ribbon **label**, stays Inter → leave `900`.
+- Any `.stat-card > strong`, `.score-ring strong`, `.price strong` with no weight set inherit body;
+  if a display heading selector elsewhere sets `800`/`900` AND is in the Space Grotesk list, set `700`.
+Leave on Inter (do NOT cap): `.eyebrow`, `.nav-eyebrow`, `.topbar-kicker`, all `.status-badge`,
+`.role-pill`, `.app-table th`, `.text-link`, `.feature-showcase small`, `.plan-label`, chart/stat
+micro-labels, buttons. These keep 700/800/900 as-is.
+
+## Letter-spacing / line-height refinement (premium feel)
+
+- Large display (hero/page/auth/section/center-pad h1): keep existing negative tracking, ensure
+  line-height in 1.05–1.15 (hero `.hero-copy h1` already `.98`→raise to `1.05`; `.auth-story-copy h1`
+  `1.01`→`1.08`; `.page-heading h1` `1.12` ok; `.section-intro h2` `1.05` ok).
+- Subheads (panel/card h2/h3): line-height ~1.25–1.3, letter-spacing -0.2px to -0.3px.
+- Body/paragraph: line-height 1.5–1.65 (body base `1.5`→`1.55`).
+- Heading weights land at 500/600/700 (no 400 display headings, no 800+).
+
+## Readability sweep — OLD → NEW size table
+
+Apply across globals.css. "12px (meta)" = secondary/caption/table/badge text; "12px (micro)" =
+eyebrow/uppercase/pill/stat-caption. Lift by role, not blanket, to rebuild hierarchy:
+
+| Role / example selectors | OLD | NEW |
+|---|---|---|
+| Body base (`body`) | 14px | **15px** |
+| Primary readable paragraphs: `.page-heading p:last-child`, `.auth-story-copy > p`, `.auth-intro`, `.hero-copy > p`, `.section-intro > p:last-child`, `.public-page-hero > p:last-child`, `.feature-showcase p`, `.about-grid p`, `.public-feature-grid p` | 14px/15px | **15px** |
+| Nav links `.nav-link`, buttons `.button`, `.button.primary/secondary` | 14px/13px | **14px** |
+| `.marketing-nav nav a`,`.marketing-login` | 17px | keep 16–17px |
+| Secondary/meta/caption now at 12px (card subtitles, `.campaign-name span`, `.account-copy span`, `.stat-card > small`, `.resource-copy > p`, `.muted`, tooltips, notification body, `.form-section > p`, `.field small`, `.score-panel > p`, support message text, cart item meta) | 12px | **13px** |
+| Table cells `.app-table td`, `.app-table strong` | 13px | **14px** |
+| Micro-labels / eyebrows / uppercase: `.eyebrow`,`.nav-eyebrow`,`.topbar-kicker`, `.app-table th`, `.status-badge`,`.role-pill`, `.stat-top`, chart labels, `.hero-badge`, `.trust-strip`, `.feature-showcase small`, stat captions, `.validation-pill`, `.ticket-status` | 12px | **12px** (keep floor; rely on letter-spacing + weight for legibility) |
+| Panel/card headings `.panel-heading h2`, `.form-section h2`, `.data-panel-head h2`, `.resource-copy h2`, `.create-modal-head h2`, `.landing-* settings h2` | 14px/15px | **18px** |
+| `.plan-card h2`, `.public-pricing-grid h2`, `.feature-showcase h3`, `.workflow-step h2`, `.trust-control h2`, `.about-grid h2` | 15px/16px/17px | **20px** |
+| `.topbar-title` | 15px | **16px** |
+| Big numbers `.stat-card > strong` | 25px | **26px** |, `.score-ring strong` 31px keep, `.price strong` 29px keep, `.wallet-card strong`/`.public-pricing-grid strong` 28px keep |
+| `.empty-state h3`, `.center-pad h3` | 14px/17px | **18px** |
+| `.auth-form-wrap > h2` | 28px | keep (≥) |
+| `.library-summary span` | 15px | **18px** |
+| Skeleton `.skeleton-line.sm` (decorative, not text) | 9px | leave — not readable text; it's a shimmer block |
+
+Rule: after edits, grep `font-size: ?([0-9]|1[01])px` in globals.css → **zero** matches (floor held).
+Do not raise the two Tailwind-utility simulation pages (they use `text-2xl/3xl/6xl`, out of scope).
+
+## Layout-risk spots to watch (larger text → check overflow/spacing)
+
+1. `.topbar` height 72px / 70px(≤760) / title 16px + `.topbar-title` ellipsis — verify no clipping; bump
+   mobile `.topbar-title` 540px rule from `12px` to **12px floor stays** but confirm fits.
+2. `.nav-link` min-height 44px with 14px text — ok, verify active-state padding.
+3. Two-column studios (`.landing-studio`, `.audience-builder-layout`, `.request-layout`,
+   `.support-layout`) — larger h2 (18–20px) in headers: check header min-heights don't clip.
+4. `.app-table` — td now 14px, th 12px; may need `padding` bump (td `14px 18px` → ok; th `10px 18px`).
+   Verify `min-width: 650px` still scrolls, not wraps.
+5. `.stat-card` min-height 138px/124px(≤540) with 13px caption — verify text fits; `.stat-top` 12px ok.
+6. `.plan-card`/`.public-pricing-grid` — h2 20px + `.price strong` 29px: check card padding 22px/25px.
+7. `.resource-card` min-height 200/210 with h2 20px + 13px subtitle — check 3-col→2-col→1-col.
+8. Marketing hero clamp `clamp(48px,6vw,78px)` keep; ≤1050 `.auth-story-copy h1` 43px keep; ≤760
+   `.hero-copy h1` 49px keep. Don't shrink these.
+9. Badges/pills (`.status-badge` min-width 66px, `.role-pill` height 30px) — 12px text unchanged, ok.
+10. `@media (max-width:540px)` block: `.topbar-title { font-size: 12px }`, `.library-summary span/p
+    { font-size: 12px }` — keep at **12px floor** (do not drop below); `.stat-card > strong` 22px keep.
+
+## Build / test commands (from package.json)
+
+No test runner exists (`scripts`: dev, build, start, lint, seed). Verification = typecheck + lint + build.
 
 ---
 
-## PHASE A — TYPOGRAPHY (do this first)
+## Ordered items
 
-### A1. Primary font bug: apply the Geist font-family to the document
+- [ ] 1. Rewire fonts in `src/app/layout.tsx`: replace `Geist`/`Geist_Mono` with `Space_Grotesk`
+      (weights 300–700), `Inter`, `JetBrains_Mono`; assign `--font-space-grotesk`, `--font-inter`,
+      `--font-mono`; put all three variable classes + `antialiased` on `<body>`. Remove Geist imports.
+      Files: `src/app/layout.tsx`
+      Verify: `npx tsc --noEmit` passes; `grep -rn "Geist" src/app/layout.tsx` returns nothing.
 
-- [ ] 1. Set the base font-family so the app actually renders in Geist instead of the browser default serif.
-      Root cause (confirmed): `layout.tsx` puts `${geistSans.variable} ${geistMono.variable} antialiased` on `<body>` and `globals.css` maps them in `@theme inline` to `--font-sans`/`--font-mono`, but NOTHING sets `font-family` on `html`/`body`. There are two `body { }` rules (globals.css line ~122 `@apply bg-background text-foreground`, and line ~143 `margin/background/color`) and neither sets a font. Fix in the second, plain-CSS body rule (globals.css ~line 143): add
-      `font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;`
-      plus base typographic defaults on the same rule: `font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-feature-settings: "cv11", "ss01"` (drop the feature-settings if it changes glyphs oddly in dev — optional). Do NOT remove the `--font-geist-sans`/`--font-geist-mono` theme mappings or the `<body>` variable classes in `layout.tsx` (preserve env/var names and the `antialiased` class).
+- [ ] 2. Update font plumbing in `src/app/globals.css`: `@theme inline` (`--font-sans`→Inter,
+      `--font-mono`→`--font-mono`, add `--font-display`→Space Grotesk); `body` font-family→Inter stack
+      (keep smoothing); replace every `var(--font-geist-mono)` with `var(--font-mono)`.
       Files: `src/app/globals.css`
-      Verify: `npm run build` passes; then `npm run dev` and confirm in DevTools the computed `font-family` on `<body>` resolves to the Geist variable (a `__Geist_*` family), not Times/serif. Headings and body are visibly sans-serif.
+      Verify: `grep -c "font-geist" src/app/globals.css` → `0`.
 
-- [ ] 2. Confirm/declare the mono stack where monospace is intended.
-      These selectors already reference `var(--font-geist-mono),monospace`: `.recipient-editor`, `.format-example p`, `.studio-code`, `.code-block` (globals.css lines ~358, ~359, ~363, ~515). Leave them as-is (they are correct). Only add `font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;` to any additional code/`<pre>`/`<code>` surface you find that currently inherits the (now-Geist-sans) body font but is meant to be monospace. If none beyond the four above, make no change here.
-      Files: `src/app/globals.css` (only if an un-monospaced code surface is found)
-      Verify: `npm run dev` — the landing-page studio code textarea (`.studio-code`), the read-only `.code-block` on detail pages, and the recipient editor render in a monospace face.
-
-- [ ] 3. Verify Geist heavy weights render; add weight config only if needed.
-      The CSS uses `font-weight` 600/700/750/800/900 (e.g. `.brand` 750, `.nav-eyebrow`/`.avatar` 800, `.plan-label` 900). Geist is a variable font, so `next/font/google` `Geist(...)` normally covers the full axis. In `npm run dev`, inspect a 900 element (e.g. `.plan-label`, `.workflow-step::before`) and an 800 element and confirm they render heavier than 700. If (and only if) they clamp to a lighter weight, add an explicit `weight`/axis config to the `Geist({...})` call in `layout.tsx` (e.g. `weight: ["400","500","600","700","800","900"]`) — otherwise leave `layout.tsx` unchanged.
-      Files: `src/app/layout.tsx` (only if weights clamp)
-      Verify: visual weight hierarchy is distinct across 600→900; `npm run build` still passes if layout.tsx was touched.
-
-### A2. Professional type-scale pass
-
-Design decision — a small, restrained scale (reasoning: the current CSS has ~126 font-size declarations at 6–10px which read as cramped/unprofessional; raise the floor to ~11px and give meta/body/headings consistent steps). Target tokens (apply as literal px values; do NOT introduce new CSS custom properties or restyle via Tailwind):
-
-| Role | Old typical | New target | line-height | notes |
-|---|---|---|---|---|
-| micro/legal/footer fine print | 6–8px | **11px** | 1.5 | footer, copyright, tooltips, timestamps |
-| eyebrow / uppercase label / table header | 7–10px | **11px** (letter-spacing ~.6–1px kept) | 1.3 | `.eyebrow`, `.nav-eyebrow`, `.app-table th`, `.*-stats span`, status/ticket pills |
-| meta / caption / secondary | 8–10px | **12px** | 1.5 | `.stat-card > small`, `.campaign-name span`, `.muted`, card descriptions, `.field small` |
-| body / form text / table cells | 10–11px | **14px** | 1.55 | `.app-table td`, `.field input/select/textarea`, `.page-heading p`, paragraph copy |
-| small heading / card title | 13–15px | **15–16px** | 1.3 | `.form-section h2`, `.resource-copy h2`, `.plan-card h2`, `.data-panel-head h2` |
-| section heading | 15–18px | **18–20px** | 1.25 | `.panel-heading h2`, `.thread-head h2`, `.settings-title h2` |
-| page H1 / hero | clamp already OK | keep existing `clamp()` | existing | `.page-heading h1`, `.auth-story-copy h1`, `.hero-copy h1`, `.section-intro h2` — leave the big clamps |
-
-Mapping rule of thumb to apply consistently: `6px→11`, `7px→11`, `8px→11` (labels/eyebrows/pills) or `→12` (captions/body-meta — use judgment per role above), `9px→12`, `10px→12` (meta) or `→14` (body/paragraph), `11px→12` (labels) or `→14` (inputs/body). Keep `12px`+ heading-ish sizes; nudge the 13–15px card/section headings up by 1–2px only where it improves hierarchy. NEVER go below 11px for any readable text.
-
-- [ ] 4. Raise the global tiny-text floor across the shell, tables, forms, stat cards, pills and nav.
-      Edit `src/app/globals.css` font-size values per the table/mapping above. This is ONE item covering the whole file (same change pattern repeated); it is large but a single coherent edit. Prioritized selectors to catch (non-exhaustive — sweep the whole file for `font-size:` ≤10px and 11px labels): `.nav-eyebrow`, `.nav-link`, `.account-copy strong/span`, `.sidebar-status`, `.sidebar-signout`, `.topbar-kicker`, `.topbar-title`, `.role-pill`, `.notification-*` (head/item/empty/footer), `.eyebrow`, `.page-heading p`, `.button`, `.attention-banner *`, `.stat-top`, `.stat-card > small`, `.chart-*`, `.bar-column small`, `.score-*`, `.campaign-name *`, `.status-badge`, `.empty-state *`, `.form-section > p`, `.field label/input/small`, `.data-panel-head *`, `.app-table th/td`, `.plan-card/.price/.feature-list`, `.admin-user-stats *`, `.review-* `, `.profile-*`, `.settings-*`, `.library-summary`, `.resource-* `, `.audience-* `, `.format-* `, `.landing-*`/`.studio-*`/`.editor-tabs`, `.auth-* `, all `.marketing-*`/`.hero-*`/`.feature-showcase`/`.public-*`/`.workflow-*`/`.trust-*`, `.create-modal-*`, wallet/cart/support/audit blocks (`.credit-pill`, `.wallet-*`, `.coupon-*`, `.cart-*`, `.support-*`, `.ticket-*`, `.audit-*`), and the `.center-pad`/`.skeleton`/`.code-block` state blocks. Keep letter-spacing on uppercase labels but reduce slightly if 11px looks spaced-out. Do not change colors, spacing, fl/grid layout, or weights in this item — font-size (and paired line-height where a block sets one) only.
+- [ ] 3. Apply Space Grotesk to the scoped heading selector list (section "Font-family mappings"); do
+      NOT add a global `h1,h2,h3` rule. Then cap every heading in that list from 800/900 to 700 per the
+      "800/900 → 700 caps" section (leave eyebrows/pills/badges/nav/th/labels on Inter at their weight).
       Files: `src/app/globals.css`
-      Verify: `npm run build` passes. Then `npm run dev`: walk dashboard, a resource library, campaign/template/group detail, the two studios (audience builder + landing studio), services/pricing, login, and the public marketing pages. Confirm no text below ~11px remains and hierarchy reads cleanly.
+      Verify: `npm run build` compiles; load `/` and a dashboard page in the running app — headings render
+      in Space Grotesk, body/nav/labels in Inter, editor panes in JetBrains Mono, no weight fallback.
 
-- [ ] 5. Protect layout at the three breakpoints and in dark mode after the size bump.
-      Larger type can overflow fixed-height bars and narrow columns. Specifically re-check and, if needed, adjust ONLY to prevent clip/overflow (keep changes minimal): the `.topbar` (72px) title/kicker/role-pill, the fixed-width `.desktop-sidebar` (256px) nav links + account card ellipsis, `.app-table` headers/cells (min-width 650px scroller), `.stat-card` numbers/captions (min-heights 138/124/108px), the two-column `.audience-builder-layout` / `.landing-studio` / `.settings-grid` / `.request-layout`, `.plan-card`/`.public-pricing-grid` cards, and `.status-badge`/pill min-widths. Review the existing media queries at **1050px**, **760px**, **540px** (and the 900/600px wallet/support ones) and bump any now-too-small overrides there to match the new floor (e.g. `.topbar-title` 12px→ at least 13–14px; `.library-summary p` 6px→11px). Nothing should wrap awkwardly, clip, or trigger horizontal scroll on the main shell.
+- [ ] 4. Readability sweep: apply the OLD→NEW size table (body→15, meta→13, table td→14, nav/buttons→14,
+      panel h2→18, card h2→20, etc.), lifting by role to restore hierarchy; keep every micro-label at the
+      12px floor. Apply the letter-spacing/line-height refinements. Do not touch the two Tailwind-utility
+      simulation pages.
       Files: `src/app/globals.css`
-      Verify: `npm run dev`, resize across 1200 / 1050 / 900 / 760 / 600 / 540 / 375 px and toggle the theme (default is dark). No overflow/clipping in topbar, sidebar, tables, stat cards, studios, or pricing cards in either theme. `npm run build` passes.
+      Verify: `grep -nE "font-size: ?([0-9]|1[01])px" src/app/globals.css` → **zero** matches (12px floor
+      held, including inside all `@media` blocks).
 
----
+- [ ] 5. Responsive + dark-mode guard: audit the `1050 / 760 / 600 / 540 / 900` media queries so no
+      font-size drops below 12px and larger text doesn't overflow (topbar title, nav, two-column studios,
+      tables, stat/plan/resource cards, marketing hero per "layout-risk spots"). Adjust padding/
+      line-height where text now crowds; preserve all breakpoints and the `.dark` rules.
+      Files: `src/app/globals.css`
+      Verify: `npm run build` passes; `npm run lint` clean; manually resize to 1050/760/600/540 in the
+      running app (light + dark) — no clipped headings, no horizontal overflow, nothing below 12px.
 
-## PHASE B — BUG HUNT / OVERHAUL
+- [ ] 6. Final full verification.
+      Files: none (verification only)
+      Verify: `npx tsc --noEmit` && `npm run lint` && `npm run build` all succeed; final
+      `grep -nE "font-size: ?([0-9]|1[01])px" src/app/globals.css` returns nothing; `grep -rn
+      "font-geist\|Geist" src/` returns nothing.
 
-Each item is independently buildable. Items are ordered safe-first. "Note only" items must be documented, not code-changed.
+## MUST NOT change
 
-- [ ] 6. Add missing `type="button"` to non-submit buttons (accessibility/correctness; prevents accidental form submits).
-      13 files contain `<button>` without an explicit `type` (heuristic grep). Audit each and add `type="button"` to every button that is NOT the primary submit of a `<form>` (leave real submit buttons as `type="submit"` or add it explicitly). Known files: `src/app/dashboard/account/AccountSettings.tsx` (2), `src/app/dashboard/DashboardClient.tsx` (1), `src/app/dashboard/groups/create/page.tsx` (1), `src/app/dashboard/landing-pages/create/page.tsx` (1), `src/app/dashboard/logs/page.tsx` (1), `src/app/dashboard/services/CartPanel.tsx` (5), `src/app/dashboard/users/AccountActionButton.tsx` (1), `src/app/login/page.tsx` (3), `src/app/sign-in-simulation/page.tsx` (1), `src/components/ai-html-editor.tsx` (1), `src/components/dashboard-shell.tsx` (6), `src/components/marketing-nav.tsx` (1), `src/components/theme-toggle.tsx` (1). This is ONE item (same pattern across files). Read each button's context before editing — do not change a genuine submit button's semantics.
-      Files: the 13 files listed above.
-      Verify: `npm run build` passes; `npm run dev` smoke — toggling theme, opening the cart/notification menus, and clicking in-form helper buttons (e.g. "show password") no longer submits/navigates unexpectedly.
+- No copy/wording/text content; no `{{link}}`/`{{...}}` tokens.
+- No routes, server actions, API handlers, DB schema/fields, Supabase/Stripe/Nodemailer logic.
+- Keep `sandbox=""` on every preview iframe; do not touch iframe attributes.
+- Do not touch `.env`, `.env.local`, or any secret.
+- Keep the semantic-class CSS system — no Tailwind-utility restyle of app components, no new UI libs
+  beyond `next/font`.
+- Do NOT restyle the standalone Tailwind-utility pages `src/app/sign-in-simulation/page.tsx` and
+  `src/app/training-result/page.tsx` (fake login / result screens — intentionally not the product font).
+- Do not lower any font-size below 12px anywhere, including media queries.
+- Do not change `ThemeProvider` config or `suppressHydrationWarning`.
+- Space Grotesk weights only 300–700 — never request 800/900 for it.
 
-- [ ] 7. Verify the entitlement allowance-boundary decision is computed once pre-insert, and tighten if needed.
-      The audit flagged `consumeAllowance` deciding monthly-vs-credit against POST-insert counts. Current code (`src/app/dashboard/campaigns/actions.ts` `launchCampaign`) already reads `getEntitlement` ONCE before insert and passes `entitlement?.remainingMonthly === 0` as the `useCustomCredit` flag into `consumeAllowance`, and `consumeAllowance` in `src/lib/entitlements.ts` no longer re-reads entitlement — so the boundary decision IS made on pre-insert state. CONFIRM this by reading both functions. If confirmed correct, make NO behavioral change; add a one-line comment at the `consumeAllowance(...)` call noting the decision uses the pre-insert `remainingMonthly` so a user exactly at the monthly limit does not wrongly burn a credit. If a real off-by-one remains (e.g. the `> 0` vs `>= 0` boundary or `recipientCount` typing lets a credit be consumed while monthly still covers it), fix it minimally so the decision is: consume a custom credit only when the monthly quota could NOT have covered this create (`remainingMonthly === 0`). Keep behavior otherwise identical. Do not change the quota numbers, the UTC-month window, or `refundAllowance`.
-      Files: `src/app/dashboard/campaigns/actions.ts`, `src/lib/entitlements.ts` (comment/minimal-fix only)
-      Verify: `npm run build` passes. Reason through the boundary on paper in the PR/notes: starter quota 2 → with `remainingMonthly` 1 before insert, no credit consumed; with 0 before insert and a custom credit present, exactly one credit consumed.
+## Gaps / assumptions
 
-- [ ] 8. Resolve the redundant landing-pages SQL to remove canonical-source confusion (safe, docs/removal only).
-      `supabase/migrations/create_landing_pages.sql` re-declares the `landing_pages` table already defined in `supabase/schema.sql` (both use `create table if not exists`, so it is harmless at runtime but confusing). It is NOT in the README's ordered migration list (README lists only `schema.sql` + the five dated migrations), so nothing references it as a required step. Resolve by deleting `supabase/migrations/create_landing_pages.sql` (the table lives in `schema.sql`, which is the canonical base). Before deleting, grep the repo to confirm no script/doc references this filename. If any reference exists, instead keep the file and add a top-of-file comment: `-- DEPRECATED: landing_pages is defined in schema.sql; this file is retained only for historical DBs and is not part of the ordered migration sequence.` Do not alter `schema.sql`.
-      Files: delete (or annotate) `supabase/migrations/create_landing_pages.sql`
-      Verify: `grep -rn "create_landing_pages" .` returns no code/doc references (outside this plan). `npm run build` unaffected (SQL is not compiled).
-
-- [ ] 9. Fresh bug sweep of the three-phase runtime surface; fix what is safe, document the rest.
-      Read for genuine NEW bugs (do not assume from the stale audit): broken/circular imports, unawaited promises, null-deref where `createAdminClient()` returns `null`, server actions missing auth/owner checks, wrong redirects, forms that don't validate, dead links / 404 routes. Focus files: `src/app/dashboard/campaigns/[id]/page.tsx` (note: campaign detail is fetched WITHOUT a `user_id` filter — confirm RLS covers read access for owners/admins and that a non-owner cannot load another user's campaign; if RLS does not cover it, add an owner/role check — otherwise document as RLS-protected), `src/app/dashboard/services/success/page.tsx`, `src/app/api/webhooks/stripe/route.ts`, `src/app/api/checkout/route.ts`, `src/app/api/track/[campaignId]/[email]/pixel/route.ts`, the public `src/app/[campaignName]/[groupName]/[slug]/page.tsx` and `src/app/l/[slug]/page.tsx`, `src/app/api/generate-content/route.ts`, and the server actions under `dashboard/*/actions.ts`. Fix only low-risk, clearly-correct issues (keep each fix minimal and targeted; no refactors/renames). For anything risky or needing product decisions, add it to a short "found, not fixed — needs decision" section in this plan file or in the PR notes rather than guessing.
-      Files: as discovered (expect small, targeted edits only).
-      Verify: `npm run build` passes; `npm run lint` clean; `npm run dev` smoke of the main authenticated flows (dashboard, create campaign, detail realtime, services/cart) shows no console errors introduced.
-
-- [ ] 10. Re-check contrast after the type changes (quick accessibility win).
-      The size bump can expose low-contrast muted text that was previously too small to notice (e.g. `.muted`, `#98a2b3` captions on white, dark-mode `--subtle`). Spot-check the now-larger meta text against WCAG AA (4.5:1 body / 3:1 large) using DevTools in both themes. Only adjust a color if it clearly fails AA for body-size text, and reuse existing palette tokens (`var(--subtle)`, `var(--ink)`) — do not introduce new colors or restyle layout. Note that full WCAG conformance needs manual AT testing; this is a targeted contrast pass only.
-      Files: `src/app/globals.css` (only if a clear AA failure is found)
-      Verify: `npm run dev` + DevTools contrast checker on sampled captions/labels in light and dark; `npm run build` passes.
-
----
-
-## MUST NOT CHANGE (preserve exactly)
-- Safety framing, admin-approval workflow, "credentials are NOT stored" text.
-- Sandboxed preview iframes (`sandbox=""`) in dashboard previews.
-- The `.env` file, all env var NAMES (`DASHSCOPE_*`, `STRIPE_*`, `SUPABASE_*`, `NEXT_PUBLIC_*`, SMTP_*).
-- The `{{link}}` email token and its title-based tracking path substitution in `approveCampaign`.
-- All DB columns, routes, server-action names, and form field names.
-- The DeepSeek/DashScope AI request shape (`src/app/api/generate-content`).
-- Stripe request shapes (`/api/checkout`, webhook) and tracking semantics.
-- The semantic-class CSS system in `globals.css` (class names stay; only font-size/line-height and the font-family addition change). No new UI/CSS/animation libraries. No Tailwind-utility restyle of existing screens.
-
-## ACCEPTED / NOTE-ONLY (do NOT "fix")
-- Intentional `dangerouslySetInnerHTML` of user-authored `html_content` on the PUBLIC phishing landing routes (`l/[slug]`, `[campaignName]/[groupName]/[slug]`) — inherent to a phishing simulator; accepted risk. Dashboard previews correctly sandbox. Leave as-is.
-- The UTC-calendar-month quota window in `entitlements.ts` — documented product simplification; out of scope here.
-- Any audit P2 item already implemented in prior phases (see the "ALREADY FIXED" list at top).
-
-## OPEN QUESTIONS / ASSUMPTIONS
-- Assumed `npm run build` is the authoritative verification gate (no test runner exists). Manual `npm run dev` visual checks cover the type-scale/dark-mode/breakpoint items a headless build cannot.
-- Assumed deleting `create_landing_pages.sql` is safe because it is absent from the README migration order and runtime uses `schema.sql`. Item 8 double-checks via grep before deleting and falls back to annotation if any reference is found.
-- Font-feature-settings in item 1 is optional/cosmetic; drop it if it alters glyphs unexpectedly in dev.
-
----
-
-## VERIFICATION NOTE (typography + bug-hunt pass)
-
-Commands run (reviewer does NOT need to re-run):
-- `rm -rf .next && npm run build` → **PASS** (Next.js 16.0.10, Turbopack; TypeScript + ESLint ran; all routes compiled). NOTE: the first build failed on a STALE `.next` cache that referenced a non-existent `src/app/failed/page.js`; removing `.next` and rebuilding fixed it. No such route exists in source (`grep -rn "/failed" src` is empty) — pre-existing cache artifact, not introduced by this pass.
-- `npm run lint` → **PASS** (ESLint clean, no warnings/errors).
-- Dev server (`npm run dev` on :3000) + headless Chromium screenshots of the four PUBLIC pages in light AND dark.
-
-### Goal 1 — Typography (DONE)
-- ROOT-CAUSE FIX: added `font-family: var(--font-geist-sans), …` plus base defaults (`font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility`) to the plain-CSS `body` rule in `globals.css`. Dropped the optional `font-feature-settings` (kept glyphs stable). Verified in a headless browser: `getComputedStyle(document.body).fontFamily` now resolves to `Geist, "Geist Fallback", ui-sans-serif, …` — the browser-default serif is gone.
-- MONO: added `code, pre, kbd, samp { font-family: var(--font-geist-mono), ui-monospace, … }` so inline `<code>{{link}}` tokens and the styled-but-font-less `.app-table code`/`.format-guide code` render monospace. The four pre-existing mono surfaces (`.recipient-editor`, `.format-example p`, `.studio-code`, `.code-block`) were left intact.
-- WEIGHTS: Geist is loaded as a variable font via `next/font/google` (full axis), so 600–900 render without clamping; `layout.tsx` left unchanged (confirmed visually in screenshots — hero/headings show distinct heavy weights).
-- TYPE SCALE: raised the tiny-text floor across the whole file. Blanket mapping applied with a hard floor of 12px (6/7/8→11→then 9/10/11→12 so effective floor is 12px for readable UI text), 13→14. Then restored hierarchy on primary body surfaces: `.field input/select/textarea`→14, `.app-table td`/`strong`→13, `.auth-intro`→14, marketing feature/card copy→14, `.button`→13. `grep font-size:[6-9]px` and `1[01]px` now returns nothing below 12px. Breakpoint overrides (1050/760/540) re-checked: `.topbar-title` (12px @540), `.library-summary` (12px) etc. are all ≥12px; no media-query value left below the floor. No colors/spacing/layout/weights changed in the scale pass.
-- LAYOUT: screenshots confirm topbar, pricing cards (4-up), feature grid, hero and login split-screen do not overflow/clip or trigger horizontal scroll in light or dark at 1280px.
-
-### Goal 2 — Bug hunt / overhaul
-FIXED:
-- Entitlement boundary (`campaigns/actions.ts` `launchCampaign`): confirmed the monthly-vs-credit decision is computed ONCE from the PRE-insert `remainingMonthly` and passed as the `useCustomCredit` flag; `consumeAllowance` no longer re-reads. Behavior was already correct — added a clarifying 3-line comment only (a user exactly at the monthly limit with room left, remainingMonthly>0, burns NO credit; only remainingMonthly===0 consumes one). No behavioral change.
-- Redundant SQL: deleted `supabase/migrations/create_landing_pages.sql` (table is canonical in `schema.sql` line 133; file absent from README migration order; only referenced by the audit doc). `git rm` used.
-- `type` attributes: added explicit `type` to buttons across `theme-toggle.tsx`, `marketing-nav.tsx`, `dashboard-shell.tsx` (mobile-close/menu/backdrop/notification toggle+close = button; sign-out = submit), `CartPanel.tsx` (5, all button), `DashboardClient.tsx` (2 chart controls = button), `AccountSettings.tsx` (2 submit), `groups/create` + `landing-pages/create` (submit), `logs/page.tsx` ("Apply" submit), `AccountActionButton.tsx` (submit), `login/page.tsx` (auth-submit=submit, google+switch=button). Real submit buttons kept/made `type="submit"`.
-
-FOUND — NOT A BUG / ACCEPTED (no change):
-- Campaign detail (`dashboard/campaigns/[id]/page.tsx`) fetches without a `user_id` filter → RLS-PROTECTED: `schema.sql` "Users can crud own campaigns" (`auth.uid()=user_id`) + admin/manager/auditor SELECT policies; a non-owner `.single()` returns no row → `notFound()`. No owner check needed.
-- All `createAdminClient()` call sites (activity, credits, checkout, entitlements, orders, users actions/page, support, billing-actions, logs) guard `if (!admin) …` — no null-deref.
-- Stripe webhook/checkout, DeepSeek/DashScope generate-content, pixel route, public landing routes (`[campaignName]/.../slug`, `l/[slug]`) reviewed — request shapes, `{{link}}`, `sandbox=""`, tracking semantics, `dangerouslySetInnerHTML` all preserved and correct.
-- Stray "N" circle bottom-left in dev screenshots = the **Next.js dev-tools indicator** (`<nextjs-portal>` shadow-DOM button at x≈22,y≈846). Dev-only; absent from production build. Not a code bug (matches prior review's non-reproduction — it lives in a shadow root).
-
-### Screenshots (.agents/tasks/typography-shots/)
-home-light.png, home-dark.png, features-light.png, features-dark.png, pricing-light.png, pricing-dark.png, login-light.png, login-dark.png
-
-### Needs runtime verification by the user (unchanged from prior review.json)
-- Apply `20261201_rename_admin_function.sql` in the Supabase SQL editor (app can't run DDL).
-- Confirm single-`clicked`-per-visit tracking against a real sent campaign.
+- No test framework in the repo; verification relies on `tsc`, `eslint`, `next build`, and manual
+  visual/responsive checks. Noted, proceeding — this is a CSS/presentation task.
+- Mono switched to JetBrains Mono (decision above). If the reviewer prefers keeping Geist Mono, only the
+  layout import + `--font-mono` source change; the rest of the plan is unaffected.
