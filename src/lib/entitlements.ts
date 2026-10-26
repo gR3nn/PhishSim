@@ -8,6 +8,13 @@ export const PLAN_QUOTA = {
   enterprise: Number.POSITIVE_INFINITY,
 } as const
 
+export const PLAN_RECIPIENT_LIMIT = {
+  custom: 0,
+  starter: 100,
+  growth: 1000,
+  enterprise: Number.POSITIVE_INFINITY,
+} as const
+
 export type EntitlementPlan = keyof typeof PLAN_QUOTA
 
 type PaidOrder = {
@@ -26,6 +33,7 @@ export type Entitlement = {
   usedThisMonth: number
   remainingMonthly: number
   oneTimeCredits: number
+  recipientLimit: number
 }
 
 const NO_PLAN: Entitlement = {
@@ -35,6 +43,7 @@ const NO_PLAN: Entitlement = {
   usedThisMonth: 0,
   remainingMonthly: 0,
   oneTimeCredits: 0,
+  recipientLimit: 0,
 }
 
 function startOfCurrentUtcMonth(): string {
@@ -91,8 +100,18 @@ export async function getEntitlement(userId: string): Promise<Entitlement> {
     (o) => o.plan === 'custom' && !o.credit_consumed,
   ).length
 
+  const customRecipientLimit = Math.max(
+    0,
+    ...paidOrders
+      .filter((o) => o.plan === 'custom' && !o.credit_consumed)
+      .map((o) => o.recipient_limit ?? 0),
+  )
+
   const plan: EntitlementPlan | null = activeMonthlyPlan ?? (oneTimeCredits > 0 ? 'custom' : null)
   const canCreate = remainingMonthly > 0 || oneTimeCredits > 0
+  const recipientLimit = activeMonthlyPlan
+    ? PLAN_RECIPIENT_LIMIT[activeMonthlyPlan]
+    : customRecipientLimit
 
   return {
     canCreate,
@@ -101,16 +120,8 @@ export async function getEntitlement(userId: string): Promise<Entitlement> {
     usedThisMonth,
     remainingMonthly,
     oneTimeCredits,
+    recipientLimit,
   }
-}
-
-export async function canCoverRecipients(userId: string, recipientCount: number): Promise<boolean> {
-  const entitlement = await getEntitlement(userId)
-  if (entitlement.remainingMonthly > 0) return true
-  const admin = createAdminClient()
-  if (!admin) return false
-  const { count } = await admin.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'paid').eq('plan', 'custom').eq('credit_consumed', false).gte('recipient_limit', recipientCount)
-  return (count || 0) > 0
 }
 
 export async function consumeAllowance(userId: string, recipientCount = 1): Promise<void> {

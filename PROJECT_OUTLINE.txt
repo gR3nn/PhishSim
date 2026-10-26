@@ -38,10 +38,10 @@ PAGES, FUNCTIONALITY AND FEATURES
    Displays the selected campaign status, totals, target status and chronological event log. Live Supabase subscriptions update analytics when events occur.
 
 5. Approval Queue (/dashboard/requests) - Administrator and Campaign Manager
-   Lists campaign requests across all clients. The administrator reviews the content and audience, approves delivery, or rejects the request. Only approval starts the email-delivery function.
+   Lists campaign requests across all clients. Selecting a campaign opens a dedicated review page (/dashboard/requests/[id]) with rendered email and landing-page previews, requester details, the complete authorized audience, and approve/request-changes controls. Only approval from this review workflow starts the email-delivery function.
 
 6. Plans, Wallet and Cart (/dashboard/services)
-   Displays a €1-per-recipient custom campaign plus Starter, Growth and Enterprise packages. Clients add products to a cart, redeem coupons, view wallet credit and continue to hosted Stripe Checkout when external payment is required.
+   Displays a €1-per-recipient custom campaign plus Starter, Growth and Enterprise packages. Clients add products to a cart, redeem coupons, view wallet credit and continue to hosted Stripe Checkout when external payment is required. The cart opens as a full-height top-layer drawer, and campaign creation validates that the selected audience does not exceed the purchased recipient capacity.
 
 7. Audiences (/dashboard/groups)
    Lets clients create, view, edit and delete authorized target groups and the email recipients inside them.

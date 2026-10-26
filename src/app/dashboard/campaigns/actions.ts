@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { sendEmail } from '@/lib/email'
 import { canManageCampaigns, getRole } from '@/lib/authz'
-import { canCoverRecipients, consumeAllowance, getEntitlement } from '@/lib/entitlements'
+import { consumeAllowance, getEntitlement, type Entitlement } from '@/lib/entitlements'
 
 export async function launchCampaign(formData: FormData) {
     const title = formData.get('title') as string
@@ -26,8 +26,9 @@ export async function launchCampaign(formData: FormData) {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
     const hasUnlimitedAccess = canManageCampaigns(getRole(user.email, profile?.role))
 
+    let entitlement: Entitlement | null = null
     if (!hasUnlimitedAccess) {
-        const entitlement = await getEntitlement(user.id)
+        entitlement = await getEntitlement(user.id)
         if (!entitlement.canCreate) {
             throw new Error("You've used all campaigns included in your plan this month. Upgrade or buy a custom campaign to continue.")
         }
@@ -35,8 +36,12 @@ export async function launchCampaign(formData: FormData) {
 
     const { count: recipientCount } = await supabase.from('targets').select('id', { count: 'exact', head: true }).eq('group_id', groupId)
     if (!recipientCount) throw new Error('The selected group has no recipients')
-    if (!hasUnlimitedAccess && !(await canCoverRecipients(user.id, recipientCount))) {
-        throw new Error(`Your custom campaign credit does not cover this ${recipientCount}-person audience.`)
+    if (!hasUnlimitedAccess && entitlement && recipientCount > entitlement.recipientLimit) {
+        const query = new URLSearchParams({
+            recipientLimit: String(entitlement.recipientLimit),
+            recipientCount: String(recipientCount),
+        })
+        redirect(`/dashboard/campaigns/create?${query}`)
     }
 
     // Campaign requests are reviewed by an administrator before any email is sent.

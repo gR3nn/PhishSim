@@ -5,9 +5,18 @@ import { SubmitButton } from '@/components/submit-button'
 import { getEntitlement } from '@/lib/entitlements'
 import { resolveUserLibrary } from '@/lib/resource-overrides'
 import { canManageCampaigns, getRole } from '@/lib/authz'
+import { AlertTriangle } from 'lucide-react'
 
-export default async function CreateCampaignPage() {
+export default async function CreateCampaignPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ recipientLimit?: string; recipientCount?: string }>
+}) {
     const supabase = await createClient()
+    const query = await searchParams
+    const recipientLimit = Number(query.recipientLimit)
+    const recipientCount = Number(query.recipientCount)
+    const hasRecipientLimitError = Number.isInteger(recipientLimit) && recipientLimit >= 0 && Number.isInteger(recipientCount) && recipientCount > recipientLimit
 
     const { data: { user } } = await supabase.auth.getUser()
     const { data: profile } = user
@@ -69,6 +78,15 @@ export default async function CreateCampaignPage() {
     return (
         <div className="content-page">
             <section className="page-heading"><div><p className="eyebrow">New Campaign</p><h1>Create a campaign</h1><p>Prepare the training scenario and submit it. An administrator will review the audience and content before any email is delivered.</p><small>{remainingNote}</small></div></section>
+            {hasRecipientLimitError && (
+                <section className="campaign-limit-alert" role="alert">
+                    <span><AlertTriangle size={20}/></span>
+                    <div>
+                        <strong>This campaign supports up to {recipientLimit} recipient{recipientLimit === 1 ? '' : 's'}.</strong>
+                        <p>Your selected group contains {recipientCount}. Remove {recipientCount - recipientLimit} recipient{recipientCount - recipientLimit === 1 ? '' : 's'} from the group or increase your campaign capacity before submitting.</p>
+                    </div>
+                </section>
+            )}
             <div className="request-layout">
             <form action={launchCampaign} className="form-card">
                 <section className="form-section"><h2>Campaign details</h2><p>Give this simulation a clear internal name.</p><div className="form-grid"><div className="field full">
