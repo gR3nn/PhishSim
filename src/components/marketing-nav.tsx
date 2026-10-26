@@ -19,9 +19,11 @@ export function MarketingNav() {
           </span>
         </Link>
         <nav>
+          <Link href="/how-it-works">How it works</Link>
           <Link href="/features">Features</Link>
           <Link href="/about">About</Link>
           <Link href="/pricing">Pricing</Link>
+          <Link href="/trust">Trust center</Link>
         </nav>
         <div>
           <span className="marketing-theme">
@@ -45,6 +47,9 @@ export function MarketingNav() {
       </header>
       {open && (
         <div className="marketing-mobile-menu">
+          <Link href="/how-it-works" onClick={() => setOpen(false)}>
+            How it works
+          </Link>
           <Link href="/features" onClick={() => setOpen(false)}>
             Features
           </Link>
@@ -53,6 +58,9 @@ export function MarketingNav() {
           </Link>
           <Link href="/pricing" onClick={() => setOpen(false)}>
             Pricing
+          </Link>
+          <Link href="/trust" onClick={() => setOpen(false)}>
+            Trust center
           </Link>
           <Link href="/login" onClick={() => setOpen(false)}>
             Sign in
@@ -78,9 +86,11 @@ export function MarketingFooter() {
         <p>Authorized simulations. Safer human habits.</p>
       </div>
       <div>
+        <Link href="/how-it-works">How it works</Link>
         <Link href="/features">Features</Link>
         <Link href="/about">About</Link>
         <Link href="/pricing">Pricing</Link>
+        <Link href="/trust">Trust center</Link>
         <Link href="/login">Sign in</Link>
       </div>
       <span>© 2026 PhishSafe</span>
