@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import SignInSimulationPage from '@/app/sign-in-simulation/page'
 
@@ -14,11 +14,12 @@ export default async function LandingPage({
     const targetEmail = resolvedSearchParams.t as string | undefined
     const campaignIdParam = resolvedSearchParams.c as string | undefined
 
-    // Initialize Supabase Admin Client
-    const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    // Service-role client (bypasses RLS). If it isn't configured, the page
+    // can't resolve its content, so 404 cleanly rather than throwing a 500.
+    const supabase = createAdminClient()
+    if (!supabase) {
+        notFound()
+    }
 
     // 1. Resolve the campaign.
     // Prefer the stable campaign id carried on the link (`c`). Fall back to the
