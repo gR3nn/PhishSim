@@ -2,6 +2,13 @@
 -- Run after the existing migrations in filename order.
 
 -- Expanded role model.
+insert into public.profiles (id, email, full_name, role)
+select u.id, u.email,
+  coalesce(u.raw_user_meta_data ->> 'full_name', split_part(u.email, '@', 1)),
+  case when lower(u.email) in ('gradinarumanuel99@gmail.com', 'alexxperian@gmail.com') then 'admin' else 'client' end
+from auth.users u
+on conflict (id) do update set email = excluded.email;
+
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check
   check (role in ('client', 'admin', 'campaign_manager', 'support', 'auditor'));
@@ -73,12 +80,15 @@ delete from public.email_templates duplicate
 using public.email_templates canonical
 where canonical.is_default and not duplicate.is_default
   and lower(duplicate.name) = lower(canonical.name)
+  and coalesce(duplicate.subject, '') = coalesce(canonical.subject, '')
+  and coalesce(duplicate.body_html, '') = coalesce(canonical.body_html, '')
   and not exists (select 1 from public.campaigns c where c.template_id = duplicate.id);
 
 delete from public.landing_pages duplicate
 using public.landing_pages canonical
 where canonical.is_default and not duplicate.is_default
-  and lower(duplicate.url_slug) = lower(canonical.url_slug);
+  and lower(duplicate.url_slug) = lower(canonical.url_slug)
+  and duplicate.html_content = canonical.html_content;
 
 drop policy if exists "Users can crud own templates" on public.email_templates;
 drop policy if exists "Admins view all templates" on public.email_templates;
