@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Pencil, Mail, MailOpen, MousePointerClick, ShieldAlert } from 'lucide-react'
+import { Pencil, Mail, MailOpen, MessageSquareText, MousePointerClick, ShieldAlert } from 'lucide-react'
 import { deleteCampaign } from '../actions'
 
 type Campaign = {
@@ -13,6 +13,7 @@ type Campaign = {
     created_at: string
     template_id: string
     group_id: string
+    rejection_reason?: string | null
 }
 
 type Event = {
@@ -113,7 +114,7 @@ export default function CampaignDetailsClient({ campaign, initialEvents, targets
         return { ...target, status }
     })
 
-    const canEdit = campaign.status === 'pending_approval' || campaign.status === 'draft'
+    const canEdit = campaign.status === 'pending_approval' || campaign.status === 'draft' || campaign.status === 'rejected'
 
     return (
         <div className="content-page">
@@ -131,7 +132,7 @@ export default function CampaignDetailsClient({ campaign, initialEvents, targets
                     {canEdit && (
                         <Link href={`/dashboard/campaigns/${campaign.id}/edit`} className="button secondary">
                             <Pencil size={14} />
-                            Edit campaign
+                            {campaign.status === 'rejected' ? 'Revise & resubmit' : 'Edit campaign'}
                         </Link>
                     )}
                     <button type="button" className="button danger" onClick={handleDelete} disabled={isDeleting}>
@@ -139,6 +140,13 @@ export default function CampaignDetailsClient({ campaign, initialEvents, targets
                     </button>
                 </div>
             </section>
+
+            {campaign.status === 'rejected' && (
+                <section className="campaign-feedback">
+                    <span><MessageSquareText size={20}/></span>
+                    <div><small>Reviewer feedback</small><strong>{campaign.rejection_reason || 'Please revise the campaign content and submit it again.'}</strong><p>Your campaign allowance has been restored. Edit this campaign to resubmit it for approval.</p></div>
+                </section>
+            )}
 
             <section className="stat-grid">
                 <div className="stat-card blue">

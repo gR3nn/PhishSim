@@ -89,6 +89,7 @@ export async function getEntitlement(userId: string): Promise<Entitlement> {
     .from('campaigns')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
+    .neq('status', 'rejected')
     .gte('created_at', startOfCurrentUtcMonth())
 
   const usedThisMonth = count ?? 0
@@ -124,15 +125,12 @@ export async function getEntitlement(userId: string): Promise<Entitlement> {
   }
 }
 
-export async function consumeAllowance(userId: string, recipientCount = 1): Promise<void> {
+export async function consumeAllowance(userId: string, recipientCount = 1, useCustomCredit = true): Promise<void> {
+  if (!useCustomCredit) return
   const admin = createAdminClient()
   if (!admin) return
 
-  const entitlement = await getEntitlement(userId)
-  // Monthly quota covers this campaign — nothing to consume.
-  if (entitlement.remainingMonthly > 0) return
-
-  // Otherwise consume the oldest custom-campaign credit large enough for this audience.
+  // Reserve the oldest custom-campaign credit large enough for this audience.
   const { data: singles } = await admin
     .from('orders')
     .select('id')
@@ -148,4 +146,25 @@ export async function consumeAllowance(userId: string, recipientCount = 1): Prom
   if (!oldest) return
 
   await admin.from('orders').update({ credit_consumed: true }).eq('id', oldest.id)
+}
+
+export async function refundAllowance(userId: string, recipientCount = 1, refundCustomCredit = true): Promise<void> {
+  if (!refundCustomCredit) return
+  const admin = createAdminClient()
+  if (!admin) return
+
+  const { data: reserved } = await admin
+    .from('orders')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'paid')
+    .eq('plan', 'custom')
+    .eq('credit_consumed', true)
+    .gte('recipient_limit', recipientCount)
+    .order('created_at', { ascending: true })
+    .limit(1)
+
+  if (reserved?.[0]) {
+    await admin.from('orders').update({ credit_consumed: false }).eq('id', reserved[0].id)
+  }
 }

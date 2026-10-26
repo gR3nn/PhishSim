@@ -21,13 +21,13 @@ export default async function DashboardLayout({
     const fallbackName = email.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
     const role = getRole(email, profile?.role)
     const creditCents = role === 'client' ? await getCreditBalance(user.id) : 0
-    let campaignsQuery = supabase.from('campaigns').select('id,title,status,created_at').in('status', ['pending_approval', 'sent', 'rejected']).order('created_at', { ascending: false }).limit(6)
+    let campaignsQuery = supabase.from('campaigns').select('id,title,status,created_at,rejection_reason').in('status', ['pending_approval', 'sent', 'rejected']).order('created_at', { ascending: false }).limit(6)
     if (role === 'admin' || role === 'campaign_manager') campaignsQuery = campaignsQuery.eq('status', 'pending_approval')
     const { data: campaignUpdates } = await campaignsQuery
     const notifications = (campaignUpdates || []).map((campaign) => ({
       id: campaign.id,
       title: role === 'admin' || role === 'campaign_manager' ? 'New campaign order' : campaign.status === 'sent' ? 'Campaign approved' : campaign.status === 'rejected' ? 'Changes requested' : 'Waiting for approval',
-      detail: campaign.title,
+      detail: campaign.status === 'rejected' && campaign.rejection_reason ? campaign.rejection_reason : campaign.title,
       createdAt: campaign.created_at,
       type: campaign.status === 'sent' ? 'approved' as const : campaign.status === 'rejected' ? 'rejected' as const : 'pending' as const,
     }))
