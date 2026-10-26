@@ -81,20 +81,54 @@ USER TYPES
    Designed for CISOs, HR and compliance officers. Can read organization-wide campaign analytics, campaign history and risk posture, but cannot create campaigns, edit resources or change settings.
 
 TECHNOLOGIES AND FRAMEWORKS
-- HTML5 and accessible semantic markup
-- CSS3 and Tailwind CSS 4 for responsive styling
-- JavaScript / TypeScript
-- React 19 for interactive user-interface components
-- Next.js 16 App Router for pages, server actions, middleware and API routes
+- HTML5 and accessible semantic markup (living web standard; no package version)
+- CSS3 and Tailwind CSS 4.1.18 for responsive styling
+- JavaScript (ECMAScript) compiled from TypeScript 5.9.3 with an ES2017 output target
+- React 19.3.1 and React DOM 19.3.1 for interactive user-interface components
+- Next.js 16.4.3 App Router for pages, server actions, middleware and API routes
 - Supabase Auth for authentication
 - Supabase PostgreSQL for relational data storage
 - Supabase Realtime for live campaign-event updates
 - Row Level Security (RLS) for permission enforcement
-- Stripe Checkout API for test and production payments
-- Nodemailer and SMTP for approved email delivery
-- Lucide React for interface icons
-- Node.js and npm for development and package management
-- Git for source-code version control
+- Stripe REST API v1 and hosted Checkout for test and production payments; the Stripe account controls the dated API revision because the application does not override the Stripe-Version header
+- Nodemailer 10.2.1 and SMTP for approved email delivery
+- Lucide React 0.561.0 for interface icons
+- Node.js 22.23.4 LTS minimum and npm 10.9 or newer for development, builds and the server runtime
+- Docker Engine 29.9.2 with the node:22.23.4-alpine base image for reproducible containers
+- Git 2.56.0 for source-code version control
+- Vercel managed hosting; Vercel is a continuously updated platform rather than a project dependency with a pinned version
+
+PINNED PACKAGE VERSION INVENTORY (package-lock.json, updated 26 October 2026)
+Production dependencies:
+- @supabase/ssr 0.8.0
+- @supabase/supabase-js 2.87.1
+- class-variance-authority 0.7.1
+- clsx 2.1.1
+- lucide-react 0.561.0
+- next 16.4.3
+- next-themes 0.4.6
+- nodemailer 10.2.1
+- react 19.3.1
+- react-dom 19.3.1
+- tailwind-merge 3.4.0
+
+Development dependencies:
+- @tailwindcss/postcss 4.1.18
+- @types/node 22.20.5
+- @types/nodemailer 7.0.4
+- @types/react 19.2.7
+- @types/react-dom 19.2.3
+- eslint 9.39.2
+- eslint-config-next 16.4.3
+- tailwindcss 4.1.18
+- tw-animate-css 1.4.0
+- typescript 5.9.3
+
+Managed-service version note:
+Supabase manages the hosted PostgreSQL, Auth and Realtime server versions, and Stripe manages its hosted Checkout service. Those server versions are not stored in this repository. The exact client/library versions used to communicate with them are listed above, while package-lock.json locks all direct and transitive npm packages for repeatable installation.
+
+RUNTIME SECURITY BASELINE
+Node.js versions before 22.23.4 on the 22.x line are not permitted because of Node2Shell (CVE-2026-111497), a high-severity out-of-bounds write in the bundled Brotli decoder. The repository enforces Node.js >=22.23.4 and <23 through package.json, .nvmrc and an exact Docker base image. Next.js, React and Nodemailer are also pinned to the audited versions above. Run npm audit before each deployment; the audit recorded for this version reports zero known vulnerabilities.
 
 DATABASE STRUCTURE
 1. profiles

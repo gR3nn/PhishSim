@@ -18,7 +18,6 @@ const handoffKeys = {
 
 export default function CreateResourceDialog({ kind, createHref, label }: CreateResourceDialogProps) {
     const router = useRouter()
-    const [mounted, setMounted] = useState(false)
     const [open, setOpen] = useState(false)
     const [mode, setMode] = useState<'choose' | 'ai'>('choose')
     const [aiPrompt, setAiPrompt] = useState('')
@@ -39,10 +38,6 @@ export default function CreateResourceDialog({ kind, createHref, label }: Create
         setAiError('')
         setAiLoading(false)
     }
-
-    useEffect(() => {
-        setMounted(true)
-    }, [])
 
     // Lock background scroll while the modal is open.
     useEffect(() => {
@@ -108,7 +103,7 @@ export default function CreateResourceDialog({ kind, createHref, label }: Create
                 {label}
             </button>
 
-            {open && mounted && createPortal(
+            {open && createPortal(
                 <div className="create-modal-backdrop" role="button" tabIndex={-1} aria-label="Close dialog" onClick={closeDialog}>
                     <div
                         ref={panelRef}
