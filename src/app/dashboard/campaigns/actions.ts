@@ -23,13 +23,21 @@ export async function launchCampaign(formData: FormData) {
         throw new Error('Unauthorized')
     }
 
-    const entitlement = await getEntitlement(user.id)
-    if (!entitlement.canCreate) {
-        throw new Error("You've used all campaigns included in your plan this month. Upgrade or buy a custom campaign to continue.")
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    const hasUnlimitedAccess = canManageCampaigns(getRole(user.email, profile?.role))
+
+    if (!hasUnlimitedAccess) {
+        const entitlement = await getEntitlement(user.id)
+        if (!entitlement.canCreate) {
+            throw new Error("You've used all campaigns included in your plan this month. Upgrade or buy a custom campaign to continue.")
+        }
     }
+
     const { count: recipientCount } = await supabase.from('targets').select('id', { count: 'exact', head: true }).eq('group_id', groupId)
     if (!recipientCount) throw new Error('The selected group has no recipients')
-    if (!(await canCoverRecipients(user.id, recipientCount))) throw new Error(`Your custom campaign credit does not cover this ${recipientCount}-person audience.`)
+    if (!hasUnlimitedAccess && !(await canCoverRecipients(user.id, recipientCount))) {
+        throw new Error(`Your custom campaign credit does not cover this ${recipientCount}-person audience.`)
+    }
 
     // Campaign requests are reviewed by an administrator before any email is sent.
     const { data: campaign, error: campaignError } = await supabase
@@ -51,7 +59,7 @@ export async function launchCampaign(formData: FormData) {
         throw new Error('Failed to create campaign')
     }
 
-    await consumeAllowance(user.id, recipientCount)
+    if (!hasUnlimitedAccess) await consumeAllowance(user.id, recipientCount)
 
     redirect(`/dashboard/campaigns/${campaign.id}`)
 }

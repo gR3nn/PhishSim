@@ -4,14 +4,19 @@ import Link from 'next/link'
 import { SubmitButton } from '@/components/submit-button'
 import { getEntitlement } from '@/lib/entitlements'
 import { resolveUserLibrary } from '@/lib/resource-overrides'
+import { canManageCampaigns, getRole } from '@/lib/authz'
 
 export default async function CreateCampaignPage() {
     const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()
-    const entitlement = user ? await getEntitlement(user.id) : null
+    const { data: profile } = user
+        ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+        : { data: null }
+    const hasUnlimitedAccess = canManageCampaigns(getRole(user?.email, profile?.role))
+    const entitlement = user && !hasUnlimitedAccess ? await getEntitlement(user.id) : null
 
-    if (!entitlement?.canCreate) {
+    if (!hasUnlimitedAccess && !entitlement?.canCreate) {
         return (
             <div className="content-page">
                 <section className="page-heading"><div><p className="eyebrow">New Campaign</p><h1>Create a campaign</h1></div></section>
@@ -25,11 +30,13 @@ export default async function CreateCampaignPage() {
         )
     }
 
-    const remainingNote = Number.isFinite(entitlement.remainingMonthly) && entitlement.remainingMonthly > 0
-        ? `${entitlement.remainingMonthly} campaign${entitlement.remainingMonthly === 1 ? '' : 's'} remaining this month`
-        : entitlement.oneTimeCredits > 0
-            ? `${entitlement.oneTimeCredits} one-time credit${entitlement.oneTimeCredits === 1 ? '' : 's'} available`
-            : 'Unlimited campaigns this month'
+    const remainingNote = hasUnlimitedAccess
+        ? 'Unlimited campaign access'
+        : entitlement && Number.isFinite(entitlement.remainingMonthly) && entitlement.remainingMonthly > 0
+            ? `${entitlement.remainingMonthly} campaign${entitlement.remainingMonthly === 1 ? '' : 's'} remaining this month`
+            : entitlement && entitlement.oneTimeCredits > 0
+                ? `${entitlement.oneTimeCredits} one-time credit${entitlement.oneTimeCredits === 1 ? '' : 's'} available`
+                : 'Unlimited campaigns this month'
 
     // Fetch Templates
     const { data: rawTemplates } = await supabase

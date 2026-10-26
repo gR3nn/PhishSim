@@ -69,10 +69,10 @@ USER TYPES
    Can purchase services, manage only their own audiences/templates/landing pages, submit campaign requests, and view analytics for their own campaigns. A client cannot approve or send a campaign directly and cannot manage another account.
 
 2. Administrator
-   Has full access: platform-wide analytics, approvals, shared-template governance, user roles, suspension/deletion controls, support, and activity logs. The initial administrators are Manuel Gradinaru and Alex Perian.
+   Has full access: platform-wide analytics, unrestricted campaign creation without a paid plan, approvals, shared-template governance, user roles, suspension/deletion controls, support, and activity logs. The initial administrators are Manuel Gradinaru and Alex Perian.
 
 3. Campaign Manager
-   Has the operational capabilities of an administrator, including approvals, templates, role management and activity logs, but cannot suspend or restore users.
+   Has the operational capabilities of an administrator, including unrestricted campaign creation without a paid plan, approvals, templates, role management and activity logs, but cannot suspend or restore users.
 
 4. Support Agent
    Can access the overview and support inbox, read client questions and respond. This role cannot create campaigns, change templates, manage billing or alter user accounts.
