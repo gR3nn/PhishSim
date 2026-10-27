@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { canManageCampaigns, getRole } from '@/lib/authz'
 import { approveCampaign, rejectCampaign } from '../../campaigns/actions'
 import { SubmitButton } from '@/components/submit-button'
+import { ReviewContentInspector } from './ReviewContentInspector'
 
 export default async function CampaignReviewPage({
     params,
@@ -81,18 +82,19 @@ export default async function CampaignReviewPage({
             <section className="review-preview-grid">
                 <article className="review-preview-card">
                     <header><div><span><Mail size={16}/></span><div><small>Email preview</small><strong>{template?.subject || 'No subject'}</strong></div></div><em>{template?.name || 'Template'}</em></header>
-                    <div className="review-frame-shell email"><iframe title="Campaign email preview" srcDoc={emailPreview} sandbox=""/></div>
+                    <ReviewContentInspector title="Campaign email" kind="email" html={template?.body_html} previewHtml={emailPreview}/>
                 </article>
 
                 <article className="review-preview-card">
                     <header><div><span><FileText size={16}/></span><div><small>Landing-page preview</small><strong>{builtInLanding ? 'Microsoft 365 sign-in simulation' : landingPage?.name || 'Landing page unavailable'}</strong></div></div><em>{landingUrl || 'No destination'}</em></header>
-                    <div className="review-frame-shell landing">
-                        {builtInLanding
-                            ? <iframe title="Campaign landing-page preview" src={`/sign-in-simulation?campaignId=${campaign.id}`} sandbox=""/>
-                            : landingPage
-                                ? <iframe title="Campaign landing-page preview" srcDoc={landingPage.html_content} sandbox=""/>
-                                : <div className="review-preview-empty"><FileText size={24}/><strong>Preview unavailable</strong><p>The selected landing page could not be found.</p></div>}
-                    </div>
+                    <ReviewContentInspector
+                        title="Campaign landing page"
+                        kind="landing"
+                        html={landingPage?.html_content}
+                        previewHtml={landingPage?.html_content}
+                        previewUrl={builtInLanding ? `/sign-in-simulation?campaignId=${campaign.id}` : undefined}
+                        trustedRoute={builtInLanding}
+                    />
                 </article>
             </section>
 

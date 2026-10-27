@@ -14,9 +14,9 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
 -   **Support & Audit**: Internal support conversations and an administrator activity trail.
 -   **AI Landing-page Generator**: Upload reference photos and a comment, and the AI provider (Alibaba Cloud Model Studio) drafts a self-contained HTML page into the editor for review before you save it (nothing is auto-saved).
 -   **AI Email Templates**: The email-template builder can also draft HTML email bodies with AI, which you can edit in the UI before saving.
--   **Real-time Tracking**: Track email opens, link clicks, and compromised credentials (simulated).
+-   **Real-time Tracking**: Track email opens, link clicks, and simulated form submissions.
 -   **Interactive Dashboard**: View campaign statistics and detailed event logs in real-time.
--   **Fake Login Pages**: Realistic login pages to capture "compromised" events (credentials are NOT stored).
+-   **Training Simulations**: Realistic educational sign-in exercises record the training event while intentionally ignoring submitted credentials.
 -   **Responsive Design**: Modern, dark-mode compatible UI built with Tailwind CSS.
 
 ## Tech Stack
@@ -33,7 +33,7 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
 
 ### Prerequisites
 
--   Node.js 18+
+-   Node.js 22.23.4 or newer within the 22.x release line
 -   npm or yarn
 -   A Supabase project
 -   An SMTP provider (e.g., Gmail App Password, SendGrid, Resend)
@@ -135,7 +135,7 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
 1.  **Login**: Sign in with your account.
 2.  **Create Resources**:
     -   Go to **Templates** to create an email template.
-    -   Go to **Groups** to upload a CSV of targets.
+    -   Go to **Groups** to type, paste, or upload semicolon-terminated recipient data from a text file.
 3.  **Request Campaign**:
     -   Go to **Campaigns** -> **New Campaign**.
     -   Select a template and a target group.
@@ -148,7 +148,7 @@ PhishSafe is a responsive Phishing Simulation as a Service platform for authoriz
 
 ## Security Note
 
-This tool is for **educational and authorized testing purposes only**. Do not use this tool to target individuals or organizations without their explicit permission. The "fake login" pages in this project are designed to simulate credential harvesting but **do not store** any submitted passwords.
+This tool is for **educational and authorized testing purposes only**. Do not use it to target individuals or organizations without explicit permission. The training sign-in exercise records only that a simulated submission occurred; it **does not store** submitted passwords.
 
 ## License
 

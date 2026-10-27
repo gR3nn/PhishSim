@@ -1,168 +1,218 @@
 REQUIREMENTS AND SPECIFICATIONS
 
-Title
+TITLE
 PhishSafe - Phishing Awareness and Simulation Management Platform
 
-OUTLINE
-The goal of PhishSafe is to help organizations improve employee security awareness through authorized phishing simulations. The application uses one authentication system and five permission-based roles: Client, Administrator, Campaign Manager, Support Agent, and Auditor / Executive. Clients build authorized campaigns using shared templates, personal customizations, target groups, wallet credits, and service plans. Administrators or Campaign Managers review each request before delivery. After an approved simulation is sent, the platform records delivery, open, click and simulated compromise events and presents them as analytics. Support Agents answer questions through an internal conversation system, while Auditors receive read-only analytics access. Simulated pages record an event only; submitted passwords are never stored. The two protected administrator accounts are gradinarumanuel99@gmail.com and alexxperian@gmail.com.
+PROJECT OUTLINE
+PhishSafe is a responsive web application for authorized phishing-awareness training. An organization can prepare realistic training emails, select an approved employee audience, choose an educational landing page, and submit the campaign for review. A campaign is never delivered directly by a client: an Administrator or Campaign Manager first inspects the email, landing page, source code, links, and recipients, then approves it or returns it with written feedback. Approved emails contain campaign-specific tracking links. PhishSafe records delivery, open, click, and simulated-submission events and converts those events into analytics without storing submitted passwords.
+
+The application has one shared authentication system and five permission-based user types: Client, Administrator, Campaign Manager, Support Agent, and Auditor / Executive. It also includes service plans, a shopping cart, Stripe-hosted checkout, a coupon-funded wallet, reusable content libraries, support conversations, account administration, and an audit trail. The protected project-owner accounts are gradinarumanuel99@gmail.com and alexxperian@gmail.com.
 
 OVERALL FUNCTIONALITY
-- Register and sign in through one shared authentication page.
-- Automatically display the correct workspace according to the user role.
-- Add services to a shopping cart and purchase monthly plans using Stripe Checkout.
-- Purchase a custom campaign for €1 per recipient or redeem wallet coupons such as FREE100.
-- Create and manage authorized employee audience groups with a validated semicolon-based recipient editor.
-- Start with 12 shared email scenarios and 12 shared educational landing-page designs.
-- Customize a default template privately; administrator edits affect everyone who has not made an override.
-- Create reusable simulation email templates and educational landing pages.
-- Submit a campaign for administrator review instead of sending immediately.
-- Approve or reject campaign requests before emails can be delivered.
-- Track sent, opened, clicked and simulated-compromise events in real time.
-- View campaign analytics, recent activity and awareness indicators.
-- Manage users and roles from the administrator workspace.
-- Ask and answer questions through a role-aware support inbox.
-- Record page visits and control clicks in an administrator audit trail.
-- Support desktop, tablet and mobile screen sizes, light/dark themes and keyboard-friendly controls.
+- Register or sign in with email/password or Google through one authentication page.
+- Assign the correct dashboard and permissions from the authenticated user's role.
+- Purchase a monthly plan or a one-time custom campaign priced at EUR 1 per recipient.
+- Add services to a cart, redeem the FREE100 coupon once, and view wallet credit.
+- Create authorized audience groups by typing, pasting, or uploading recipient data in the format email@example.com, Optional Name;.
+- Use 12 managed email templates and 12 managed educational landing pages.
+- Create personal templates and landing pages or customize a managed default without changing it for other users.
+- Let an Administrator edit a managed default globally while retaining existing personal overrides.
+- Create a campaign from an email template, audience group, and landing page.
+- Validate purchased recipient capacity before accepting a client campaign request.
+- Place every client campaign in a pending approval queue before delivery.
+- Let reviewers switch between rendered Preview and Source code, list every href attribute, inspect recipients, approve delivery, or request changes with feedback.
+- Restore the campaign allowance after rejection so the client can edit and resubmit the same campaign.
+- Send approved emails through SMTP and generate production-safe tracked links.
+- Record sent, opened, clicked, and simulated-submission events; submitted passwords are ignored and never stored.
+- Display totals, rates, a 30-day engagement chart, awareness score, recent campaigns, campaign details, and live event updates.
+- Manage accounts and roles according to role permissions.
+- Exchange questions and replies in an internal support inbox.
+- Record authenticated page views and control clicks in an administrative audit trail.
+- Support desktop, tablet, and mobile layouts, light and dark themes, and keyboard-accessible controls.
 
-PAGES, FUNCTIONALITY AND FEATURES
-1. Login / Registration (/login)
-   A common login and registration page for every user. Supabase Auth validates email/password accounts and also supports Google sign-in. The account email and stored profile decide whether the user sees client or administrator features.
+PAGES, EXPLANATIONS, FUNCTIONALITY, AND FEATURES
 
-2. Dashboard Overview (/dashboard)
-   Shows delivery totals, open rate, click rate, risk events, an engagement chart, awareness score and recent campaigns. Administrators also see a shortcut to pending approvals.
+PUBLIC PAGES
+1. Home (/)
+   Introduces PhishSafe, its controlled campaign workflow, analytics, services, and main calls to action. The public navigation links to all product-information pages and provides light/dark theme controls.
 
-3. New Campaign Request (/dashboard/campaigns/create)
-   Lets a client choose a campaign name, email template, authorized target group and educational landing page. Submitting creates a campaign with pending_approval status. It does not send emails.
+2. How It Works (/how-it-works)
+   Explains the five-stage workflow: prepare, authorize, review, deliver, and learn.
 
-4. Campaign Details (/dashboard/campaigns/[id])
-   Displays the selected campaign status, totals, target status and chronological event log. Live Supabase subscriptions update analytics when events occur. When a request is rejected, this page shows the reviewer feedback and lets the client revise and resubmit the same campaign after its allowance has been restored.
+3. Features (/features)
+   Presents campaign building, content libraries, approval controls, analytics, support, and governance features.
 
-5. Approval Queue (/dashboard/requests) - Administrator and Campaign Manager
-   Lists campaign requests across all clients. Selecting a campaign opens a dedicated review page (/dashboard/requests/[id]) with rendered email and landing-page previews, requester details, the complete authorized audience, and approve/request-changes controls. A rejection requires written feedback and restores the client campaign allowance. Only approval from this review workflow starts delivery, using the configured PhishSafe production URL for all email links.
+4. About (/about)
+   Explains the project's educational purpose and responsible-simulation approach.
 
-6. Plans, Wallet and Cart (/dashboard/services)
-   Displays a €1-per-recipient custom campaign plus Starter, Growth and Enterprise packages. Clients add products to a cart, redeem coupons, view wallet credit and continue to hosted Stripe Checkout when external payment is required. The cart opens as a full-height top-layer drawer, and campaign creation validates that the selected audience does not exceed the purchased recipient capacity.
+5. Pricing (/pricing)
+   Presents the custom EUR 1-per-recipient campaign and the Starter, Growth, and Enterprise monthly plans. Sign-in is required before purchase.
 
-7. Audiences (/dashboard/groups)
-   Lets clients create, view, edit and delete authorized target groups and the email recipients inside them.
+6. Trust Center (/trust)
+   Describes authorization, privacy, access control, password non-retention, and review safeguards.
 
-8. Email Templates (/dashboard/templates)
-   Lets clients build and manage reusable training email content. The {{link}} placeholder is replaced with a tracked educational link after approval.
+7. Login and Registration (/login)
+   Provides the common email/password form for every role, new-account registration, Google OAuth, password recovery, and responsive error feedback. Supabase Auth manages authentication sessions.
 
-9. Landing Pages (/dashboard/landing-pages)
-   Lets clients create educational simulation pages. Public campaign links can display these pages, while submitted credentials are never saved.
+AUTHENTICATED PAGES
+8. Dashboard Overview (/dashboard)
+   Displays sent, opened, clicked, and simulated-submission totals; open/click/risk rates; an interactive 30-day engagement chart; awareness score; recent campaigns; and pending-review shortcuts. Row Level Security and role policies determine whether analytics are personal or organization-wide.
 
-10. Account Management (/dashboard/users) - Administrator and Campaign Manager
-    Lists all Supabase Auth accounts and supports five roles. Administrators can change roles, suspend or restore sign-in, and delete accounts. Campaign Managers can manage roles and accounts but cannot suspend users. The two project-owner emails are protected administrators.
+9. New Campaign (/dashboard/campaigns/create)
+   Lets authorized builders choose a title, email template, audience group, and landing page. Clients need an available plan/custom credit and cannot exceed its recipient limit. Administrators and Campaign Managers can create campaigns without billing restrictions.
 
-11. Stripe Payment Result (/dashboard/services/success)
-    Confirms that Stripe Checkout returned successfully and guides the client toward creating a campaign request.
+10. Campaign Details and Editing (/dashboard/campaigns/[id], /dashboard/campaigns/[id]/edit)
+    Shows status, statistics, target outcomes, and a chronological event log with live updates. Pending or rejected campaigns can be edited. A rejected campaign displays reviewer feedback and can be resubmitted after its allowance is restored.
 
-12. Support Inbox (/dashboard/support)
-    Lets clients choose a suggested question or write their own. Support Agents, Campaign Managers and Administrators can view conversations and reply.
+11. Campaign Review Queue (/dashboard/requests, /dashboard/requests/[id])
+    Available to Administrators and Campaign Managers. The queue lists requests and opens a complete review workspace. Reviewers can inspect requester details, all recipients, rendered email and landing-page previews, original HTML source, and an automatic list of href values. Approval begins delivery; rejection requires feedback and refunds the used allowance.
 
-13. Activity Logs (/dashboard/logs) - Administrator and Campaign Manager
-    Shows page visits and button/link clicks with the user, time, path and selected control for auditing and demonstrations.
+12. Billing, Wallet, and Cart (/dashboard/services)
+    Available to Clients. Shows wallet balance, coupon redemption, service plans, cart contents, order history, and subscription management. Stripe hosts card checkout, while PhishSafe stores only order references and entitlement data.
 
-USER TYPES
+13. Payment Result (/dashboard/services/success)
+    Verifies a returned Stripe Checkout session or confirms a wallet purchase, records the order idempotently, and directs the client to campaign creation.
+
+14. Audience Groups (/dashboard/groups and child create/view/edit pages)
+    Creates, views, edits, and deletes user-owned authorized recipient groups. The editor validates semicolon-terminated email entries and supports text-file upload. Deleting a group also deletes its targets; groups still referenced by campaigns are protected by database relationships.
+
+15. Email Templates (/dashboard/templates and child create/view/edit pages)
+    Displays the shared email library and personal content. Users can create HTML templates, preview them, edit personal copies, and delete only personal resources. The required {{link}} placeholder becomes the tracked campaign URL after approval. Optional AI assistance can draft or revise editable HTML.
+
+16. Landing Pages (/dashboard/landing-pages and child create/view/edit pages)
+    Displays the shared educational landing-page library and personal content. Users can preview, create, edit, and delete personal pages. Editing a default creates a private override unless a manager is editing the managed global version. Optional AI assistance can draft or revise editable HTML.
+
+17. User Accounts (/dashboard/users)
+    Available to Administrators and Campaign Managers. Both can list accounts, change roles, and delete non-protected accounts. Only Administrators can suspend or restore sign-in. The two owner accounts cannot be demoted, suspended, or deleted.
+
+18. Support Inbox (/dashboard/support)
+    Clients can choose a suggested question or write a custom message and follow replies. Support Agents, Campaign Managers, and Administrators can view conversations, reply, and close tickets.
+
+19. Activity Logs (/dashboard/logs)
+    Available to Administrators and Campaign Managers. Shows up to 500 recent page-view and click records and supports filtering by action and user.
+
+20. Account Settings (/dashboard/account)
+    Shows the current name, email, role, and registration date. The user can edit the displayed name and change the account password.
+
+TRAINING AND SYSTEM ROUTES
+21. Tracked Campaign Landing (/[campaignName]/[groupName]/[slug])
+    Opens the selected educational page from an approved email, identifies the campaign by its stable ID, and records a click event for the intended recipient.
+
+22. Managed Landing Preview (/l/[slug])
+    Displays a shared or personalized landing page from its URL slug.
+
+23. Built-in Sign-in Simulation and Training Result (/sign-in-simulation, /training-result)
+    Provides a controlled sign-in exercise. A submission records only the training event and redirects to an educational result; typed credentials are intentionally ignored and never stored.
+
+24. API and Authentication Routes
+    /auth/callback completes OAuth, /auth/signout ends a session, /api/checkout creates Stripe Checkout sessions, /api/webhooks/stripe verifies signed payment events, /api/track/.../pixel records opens, /api/activity records authenticated audit events, and /api/generate-content provides optional AI-assisted HTML drafting.
+
+USER TYPES AND PERMISSIONS
 1. Client
-   Can purchase services, manage only their own audiences/templates/landing pages, submit campaign requests, and view analytics for their own campaigns. A client cannot approve or send a campaign directly and cannot manage another account.
+   Purchases services, redeems wallet credit, manages only owned audiences and personal resources, submits campaign requests, receives review feedback, and views analytics for owned campaigns. A Client cannot approve or directly send a campaign and cannot manage another account.
 
 2. Administrator
-   Has full access: platform-wide analytics, unrestricted campaign creation without a paid plan, approvals, shared-template governance, user roles, suspension/deletion controls, support, and activity logs. The initial administrators are Manuel Gradinaru and Alex Perian.
+   Has full platform access: organization-wide analytics, unrestricted campaign creation, campaign review and delivery, global resource management, account roles, suspension/restoration, account deletion, support, and activity logs. Protected Administrators cannot be demoted or removed.
 
 3. Campaign Manager
-   Has the operational capabilities of an administrator, including unrestricted campaign creation without a paid plan, approvals, templates, role management and activity logs, but cannot suspend or restore users.
+   Has operational access to organization-wide analytics, unrestricted campaign creation, campaign review and delivery, shared resources, role changes, account deletion, support, and logs. This role cannot suspend or restore user sign-in and cannot modify a protected owner account.
 
 4. Support Agent
-   Can access the overview and support inbox, read client questions and respond. This role cannot create campaigns, change templates, manage billing or alter user accounts.
+   Uses the overview and support inbox to read and answer questions and close conversations. This role cannot create or approve campaigns, edit campaign resources, access billing, or manage users.
 
 5. Auditor / Executive (Read-Only)
-   Designed for CISOs, HR and compliance officers. Can read organization-wide campaign analytics, campaign history and risk posture, but cannot create campaigns, edit resources or change settings.
+   Intended for CISOs, HR personnel, and compliance officers. Can read organization-wide campaign history, analytics, and risk posture but cannot create campaigns, edit content, approve delivery, purchase services, or change settings.
 
-TECHNOLOGIES AND FRAMEWORKS
-- HTML5 and accessible semantic markup (living web standard; no package version)
-- CSS3 and Tailwind CSS 4.1.18 for responsive styling
-- JavaScript (ECMAScript) compiled from TypeScript 5.9.3 with an ES2017 output target
-- React 19.3.1 and React DOM 19.3.1 for interactive user-interface components
-- Next.js 16.4.3 App Router for pages, server actions, request proxy and API routes
-- Supabase Auth for authentication
-- Supabase PostgreSQL for relational data storage
-- Supabase Realtime for live campaign-event updates
-- Row Level Security (RLS) for permission enforcement
-- Stripe REST API v1 and hosted Checkout for test and production payments; the Stripe account controls the dated API revision because the application does not override the Stripe-Version header
-- Nodemailer 10.2.1 and SMTP for approved email delivery
-- Lucide React 0.561.0 for interface icons
-- Node.js 22.23.4 LTS minimum and npm 10.9 or newer for development, builds and the server runtime
-- Docker Engine 29.9.2 with the node:22.23.4-alpine base image for reproducible containers
-- Git 2.56.0 for source-code version control
-- Vercel managed hosting; Vercel is a continuously updated platform rather than a project dependency with a pinned version
+TECHNOLOGIES, FRAMEWORKS, AND EXACT VERSIONS
+Core web standards:
+- HTML Living Standard (semantic HTML5 markup; living standard, not package-versioned)
+- CSS with Tailwind CSS 4.1.18 and @tailwindcss/postcss 4.1.18
+- JavaScript ECMAScript output target ES2017, authored with TypeScript 5.9.3
 
-PINNED PACKAGE VERSION INVENTORY (package-lock.json, updated 26 October 2026)
-Production dependencies:
-- @supabase/ssr 0.8.0
-- @supabase/supabase-js 2.87.1
-- class-variance-authority 0.7.1
-- clsx 2.1.1
-- lucide-react 0.561.0
-- next 16.4.3
+Application and interface:
+- Next.js 16.4.3 using the App Router, React Server Components, Server Actions, Route Handlers, and request proxy
+- React 19.3.1
+- React DOM 19.3.1
 - next-themes 0.4.6
-- nodemailer 10.2.1
-- react 19.3.1
-- react-dom 19.3.1
-- tailwind-merge 3.4.0
+- Lucide React 0.561.0
+- tw-animate-css 1.4.0
 
-Development dependencies:
-- @tailwindcss/postcss 4.1.18
+Authentication and database clients:
+- @supabase/supabase-js 2.87.1
+- @supabase/ssr 0.8.0
+- Supabase Auth, hosted PostgreSQL, Realtime, and Row Level Security; Supabase manages the server versions, so they are not pinned in this repository
+
+External services:
+- Stripe REST API v1 and Stripe-hosted Checkout; the application uses HTTPS directly and does not install the Stripe SDK or pin a dated Stripe API revision
+- Nodemailer 10.2.1 with SMTP for approved email delivery
+- Alibaba Cloud Model Studio OpenAI-compatible API with configurable DeepSeek model; default model deepseek-v4.1-flash (optional feature, managed service)
+
+Development, quality, and deployment:
+- Node.js 22.23.4 or newer within major version 22 (repository requirement and Docker runtime)
+- npm 10.9.0 or newer; development machine version 10.9.8
+- Docker Engine 29.9.2 with node:22.23.4-alpine
+- ESLint 9.39.2 with eslint-config-next 16.4.3
+- Git 2.56.0
+- Vercel managed hosting (continuously updated service; no repository-pinned platform version)
+
+Type definitions used during development:
 - @types/node 22.20.5
 - @types/nodemailer 7.0.4
 - @types/react 19.2.7
 - @types/react-dom 19.2.3
-- eslint 9.39.2
-- eslint-config-next 16.4.3
-- tailwindcss 4.1.18
-- tw-animate-css 1.4.0
-- typescript 5.9.3
 
-Managed-service version note:
-Supabase manages the hosted PostgreSQL, Auth and Realtime server versions, and Stripe manages its hosted Checkout service. Those server versions are not stored in this repository. The exact client/library versions used to communicate with them are listed above, while package-lock.json locks all direct and transitive npm packages for repeatable installation.
-
-RUNTIME SECURITY BASELINE
-Node.js versions before 22.23.4 on the 22.x line are not permitted because of Node2Shell (CVE-2026-111497), a high-severity out-of-bounds write in the bundled Brotli decoder. The repository enforces Node.js >=22.23.4 and <23 through package.json, .nvmrc and an exact Docker base image. Next.js, React and Nodemailer are also pinned to the audited versions above. Run npm audit before each deployment; the audit recorded for this version reports zero known vulnerabilities.
+Repeatable installation is defined by package-lock.json. Managed products such as Supabase, Stripe, Vercel, SMTP providers, and Alibaba Cloud update their server software independently; the repository pins their client packages, protocol, model name, or integration contract where applicable.
 
 DATABASE STRUCTURE
-1. profiles
-   id (UUID, primary key and reference to auth.users), email, full_name, avatar_url, role (client/admin/campaign_manager/support/auditor), created_at. Stores application-specific user information and permission level.
+The application uses Supabase PostgreSQL. UUID primary keys identify application records, foreign keys connect related tables, and Row Level Security applies ownership and role permissions.
 
-2. groups
-   id (UUID, primary key), user_id (owner), name, created_at. Represents an authorized campaign audience owned by a client.
+1. auth.users (Supabase-managed)
+   id (UUID, primary key), email, encrypted authentication information, provider metadata, confirmation/sign-in timestamps, and suspension metadata. Password hashes and OAuth identities are managed by Supabase Auth, not by application tables.
 
-3. targets
-   id (UUID, primary key), group_id (foreign key), email, name. Contains the training recipients in an audience group.
+2. profiles
+   id (UUID, primary key and foreign key to auth.users), email, full_name, avatar_url, role, created_at. The role constraint allows client, admin, campaign_manager, support, or auditor. A database trigger creates/updates a profile when an Auth user is created or changes email.
 
-4. email_templates
-   id (UUID, primary key), user_id (owner), name, subject, body_html, is_default, source_template_id, created_at, updated_at. Stores global defaults, personal templates and non-destructive user overrides.
+3. groups
+   id (UUID, primary key), user_id (foreign key to auth.users), name, created_at. Represents one authorized audience owned by a user.
 
-5. landing_pages
-   id (UUID, primary key), user_id (owner), name, url_slug, html_content, is_default, source_template_id, created_at, updated_at. Stores shared and personalized educational pages.
+4. targets
+   id (UUID, primary key), group_id (foreign key to groups), email, name. Contains recipients for an audience. Deleting a group cascades to its targets.
 
-6. campaigns
-   id (UUID, primary key), user_id (requesting client), title, template_id, group_id, landing_page_url, status (draft/pending_approval/sent/rejected), requested_at, approved_at, approved_by, rejection_reason, created_at. Connects campaign resources and implements the approval workflow.
+5. email_templates
+   id (UUID, primary key), user_id (foreign key to auth.users), name, subject, body_html, is_default, source_template_id (self-referencing foreign key), created_at, updated_at. is_default identifies managed templates; source_template_id connects a user's private override to its shared original.
 
-7. events
-   id (UUID, primary key), campaign_id (foreign key), target_email, event_type (sent/opened/clicked/compromised), user_agent, ip_address, created_at. Stores analytics without storing submitted passwords.
+6. landing_pages
+   id (UUID, primary key), user_id (foreign key to auth.users), name, url_slug, html_content, is_default, source_template_id (self-referencing foreign key), created_at, updated_at. The user_id/url_slug pair is unique. Shared pages are publicly readable for campaign display, while writes remain permission-controlled.
 
-8. orders
-   id (UUID, primary key), user_id (buyer), stripe_session_id, plan, quantity, recipient_limit, amount_cents, currency, status, paid_with, created_at. Stores billing references and campaign entitlements. Card details remain in Stripe.
+7. campaigns
+   id (UUID, primary key), user_id (requester), title, subject, body_html, template_id (foreign key to email_templates), group_id (foreign key to groups), landing_page_url, status, requested_at, approved_at, approved_by (foreign key to auth.users), rejection_reason, created_at. Status is restricted to draft, pending_approval, sent, or rejected.
 
-9. credit_transactions
-   id, user_id, amount_cents, kind, reference, description, created_at. An immutable wallet ledger for coupons, purchases, refunds and administrator adjustments.
+8. events
+   id (UUID, primary key), campaign_id (foreign key to campaigns), target_email, event_type, user_agent, ip_address, created_at. event_type is restricted to sent, opened, clicked, or compromised (the simulated submission event). Deleting a campaign cascades to its analytics events. No password field exists.
 
-10. support_tickets and support_messages
-   Store conversation ownership, subject, status, assignment, message sender, message body and timestamps.
+9. orders
+   id (UUID, primary key), user_id (foreign key to auth.users), stripe_session_id (unique), stripe_customer_id, plan, amount_cents, currency, status, billing_type, period_start, credit_consumed, quantity, recipient_limit, paid_with, created_at. Plans are custom, starter, growth, or enterprise; status is pending, paid, cancelled, or refunded. Card numbers are never stored.
 
-11. activity_logs
-   id, user_id, action, path, label, metadata, created_at. Stores authenticated page-view and click events for administrator audits.
+10. credit_transactions
+    id (UUID, primary key), user_id (foreign key to auth.users), amount_cents, kind, reference, description, created_at. Positive and negative immutable ledger rows calculate wallet balance. kind is coupon, purchase, refund, or adjustment. A partial unique index limits a coupon reference to one redemption per user.
 
-SECURITY AND PERMISSIONS
-Supabase Row Level Security limits clients to records they own. Administrator policies permit platform-wide review only for administrator accounts. Protected routes verify the signed-in user on the server. Campaign email delivery can run only from the administrator approval action. Stripe secrets, SMTP passwords and Supabase service credentials are stored in environment variables and are not committed to source control. The project must be used only for authorized educational simulations.
+11. support_tickets
+    id (UUID, primary key), user_id (ticket owner), subject, status, assigned_to, created_at, updated_at. Status is open, answered, or closed.
+
+12. support_messages
+    id (UUID, primary key), ticket_id (foreign key to support_tickets), sender_id (foreign key to auth.users), body, created_at. Deleting a ticket cascades to its messages; message length is restricted to 1-4000 characters.
+
+13. activity_logs
+    id (BIGINT identity primary key), user_id (foreign key to auth.users), action, path, label, metadata (JSONB), created_at. Indexed by date and user/date for the administrator audit page.
+
+DATABASE SECURITY AND BUSINESS RULES
+- Row Level Security limits Clients to their own groups, targets, campaigns, orders, wallet records, personal resources, and support conversations.
+- Administrators and Campaign Managers receive controlled cross-account policies for review and operations; Auditors receive read-only campaign/event access.
+- Service-role access is restricted to trusted server code for account administration, public event recording, billing reconciliation, and other privileged tasks.
+- Campaign delivery is available only through the authenticated approval action.
+- Stripe webhook payloads are verified with HMAC-SHA256 and a five-minute timestamp tolerance.
+- Secrets for Supabase, Stripe, SMTP, and AI services are stored in environment variables and excluded from Git and Docker build context.
+- The application is intended only for authorized education and security-awareness exercises.
+
+PRESENTATION DATA STATE
+The final project database contains the protected and retained registered accounts plus the 12 managed email templates and 12 managed landing pages. Temporary campaigns, groups, recipients, analytics events, orders, wallet transactions, support messages, and activity logs used during development were removed before presentation.
